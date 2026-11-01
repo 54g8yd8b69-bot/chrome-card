@@ -141,7 +141,7 @@ textarea{min-height:84px;resize:vertical}
     <section class="panel">
       <span class="lbl">Lab card details</span>
       <div class="fields">
-        <label class="f" id="patWrap">Patient / hospital no.<input type="text" id="fPatient" autocomplete="off"></label>
+        
         <label class="f">Date<input type="date" id="fDate"></label>
         <label class="f">Clinician<input type="text" id="fClin" autocomplete="off"></label>
         <label class="f">Stage<input type="text" id="fStage" autocomplete="off"></label>
@@ -299,7 +299,7 @@ function example(){
   T.L4.rest.m=true;T.L4.clasp={type:'ibar',o:'d'};T.L4.guide.d=true;
   T.L3.rest.c=true;T.R3.rest.c=true;
   return {arch:'upper',notation:'fdi',example:true,arches:{upper:u,lower:blankArch('lower')},
-    fields:{patient:'Example patient',date:today(),clin:'',stage:'Framework try-in',shade:'A2',mould:'',notes:'Survey with vertical path of insertion. Tripod model and return with framework for try-in.'}};
+    fields:{patient:'',date:today(),clin:'',stage:'Framework try-in',shade:'A2',mould:'',notes:'Survey with vertical path of insertion. Tripod model and return with framework for try-in.'}};
 }
 let S;const KEY='chromecard-v1';
 const EMBED=!!window.CC_EMBED;
@@ -927,8 +927,8 @@ $('blankBtn').onclick=()=>{commit(()=>{S.arches={upper:blankArch('upper'),lower:
   S.fields={patient:'',date:today(),clin:'',stage:'',shade:'',mould:'',notes:''};loadFields();save();toast('Blank card ready')};
 
 // fields
-const FM={patient:'fPatient',date:'fDate',clin:'fClin',stage:'fStage',shade:'fShade',mould:'fMould',notes:'fNotes'};
-function loadFields(){Object.entries(FM).forEach(([k,id])=>$(id).value=S.fields[k]||'')}
+const FM={date:'fDate',clin:'fClin',stage:'fStage',shade:'fShade',mould:'fMould',notes:'fNotes'};
+function loadFields(){if(S.fields)S.fields.patient='';Object.entries(FM).forEach(([k,id])=>$(id).value=S.fields[k]||'')}
 Object.entries(FM).forEach(([k,id])=>$(id).addEventListener('input',()=>{S.fields[k]=$(id).value;save()}));
 
 // pointer
@@ -1065,7 +1065,7 @@ async function buildCard(){
   const f=S.fields;ctx.textBaseline='alphabetic';
   ctx.font=F.h;ctx.fillStyle='#0B2E4A';ctx.fillText(cardTitle(arches),M,M+22);
   ctx.font=F.sub;ctx.fillStyle='#4A5A68';ctx.textAlign='right';ctx.fillText(f.date?fmtDate(f.date):'',W-M,M+22);ctx.textAlign='left';
-  const meta=[f.patient&&'Patient: '+f.patient,f.clin&&'Clinician: '+f.clin,'Notation: '+(S.notation==='fdi'?'FDI':'Palmer')].filter(Boolean).join('    ·    ');
+  const meta=[f.clin&&'Clinician: '+f.clin,'Notation: '+(S.notation==='fdi'?'FDI':'Palmer')].filter(Boolean).join('    ·    ');
   ctx.fillText(meta,M,M+50);ctx.fillStyle='#3FA9A0';ctx.fillRect(M,M+62,W-2*M,2);
   imgs.forEach((o,i)=>{const x=M+i*(dW+28);ctx.font=F.cap;ctx.fillStyle='#5B6B79';
     const cap=(o.a==='upper'?'UPPER':'LOWER')+' ARCH  ·  OCCLUSAL VIEW  ·  '+connName(o.a).toUpperCase();
