@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Chrome Card: draw removable partial denture and obturator designs like a lab card and export an image and text summary for the clinical notes.">
+<title>Chrome Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caladea:wght@400;700&family=Carlito:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: lab-card "paper" drawing on the left, instrument tray of tools on the right; stacks on phones */
+:root{
+  --navy:#0B2E4A; --teal:#1C7293; --teal-2:#3FA9A0;
+  --bg:#EEF2F5; --surface:#FFFFFF; --ink:#13283A; --muted:#5B6B79; --line:#D3DCE3;
+  --chip:#E3EDF2; --chip-on:#0B2E4A; --chip-on-ink:#FFFFFF; --focus:#3FA9A0; --warn:#9A5B12;
+  --head:'Caladea', Cambria, Georgia, serif; --body:'Carlito', Calibri, 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A1A27; --surface:#10273A; --ink:#E4EDF3; --muted:#9BB0BF; --line:#24425A;
+  --chip:#173650; --chip-on:#3FA9A0; --chip-on-ink:#062030; --teal:#5DB8D6; --warn:#E3A55A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A1A27; --surface:#10273A; --ink:#E4EDF3; --muted:#9BB0BF; --line:#24425A;
+  --chip:#173650; --chip-on:#3FA9A0; --chip-on-ink:#062030; --teal:#5DB8D6; --warn:#E3A55A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+html.embed header.top,html.embed #exChip,html.embed #patWrap{display:none!important}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#0B2E4A}
+header.top{background:#0B2E4A;color:#fff;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+header.top .in{max-width:1200px;margin:0 auto;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+header.top h1{font-family:var(--head);font-size:1.5rem;margin:0;letter-spacing:.01em}
+header.top h1 span{color:#3FA9A0}
+header.top p{margin:0;color:#B9CCDA;font-size:.95rem}
+main{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+h2{font-family:var(--head);font-size:1.15rem;margin:0;text-wrap:balance}
+.lbl{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.paper{background:#FFFFFF;border-radius:10px;box-shadow:0 1px 2px rgba(11,46,74,.12),0 8px 24px rgba(11,46,74,.10);padding:12px 12px 8px;position:relative;color:#13283A}
+.paper-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 4px 6px;border-bottom:1px solid #DCE3E9}
+.paper-head .t{font-family:var(--head);font-weight:700;font-size:1.05rem;color:#0B2E4A}
+.kennedy{font-weight:700;color:#1C7293;font-size:.95rem}
+.ex{display:inline-flex;align-items:center;gap:8px;background:#FFF4E2;color:#7A4A0E;border-radius:999px;padding:2px 4px 2px 10px;font-size:.82rem}
+.ex button{font:inherit;font-weight:700;border:0;background:#7A4A0E;color:#fff;border-radius:999px;padding:2px 10px;cursor:pointer}
+#arch{width:100%;height:auto;display:block;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#arch.drawing{touch-action:none;cursor:crosshair}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.chip{font:inherit;font-size:.95rem;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;min-height:38px}
+.seg button[aria-pressed="true"],.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.tools button{font:inherit;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:8px 4px;cursor:pointer;display:grid;justify-items:center;gap:2px;font-size:.88rem;min-height:56px}
+.tools button svg{width:22px;height:22px}
+.tools button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.hint{margin:0;color:var(--muted);font-size:.92rem;min-height:2.6em}
+.hint.warn{color:var(--warn)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:700;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);min-height:40px}
+.btn.primary{background:#1C7293;border-color:#1C7293;color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fields .wide{grid-column:1/-1}
+@media (max-width:420px){.fields{grid-template-columns:minmax(0,1fr)}}
+label.f{display:grid;gap:4px;font-size:.85rem;color:var(--muted);font-weight:700;min-width:0}
+input[type=text],input[type=date],textarea{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+textarea{min-height:84px;resize:vertical}
+.summary{font-size:.95rem;display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.summary li{padding:6px 0;border-bottom:1px dashed var(--line);display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:8px}
+.summary li b{font-variant-numeric:tabular-nums;color:var(--teal)}
+.summary li.gen{grid-template-columns:minmax(0,1fr)}
+#preview{width:100%;border-radius:8px;border:1px solid var(--line);background:#fff}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:#0B2E4A;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:#4A5A68;padding:6px 4px 2px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend svg{flex:none}
+.legend i{display:inline-block;width:16px;height:8px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="in"><h1>Chrome <span>Card</span></h1><p>Cobalt-chromium RPD design, drawn like a lab card</p></div></header>
+
+<main>
+  <div class="col">
+    <section class="paper" aria-label="Design drawing">
+      <div class="paper-head">
+        <span class="t" id="archTitle">Upper arch</span>
+        <span class="kennedy" id="kennedy"></span>
+        <span class="ex" id="exChip">Example design <button id="blankBtn" type="button">Start blank</button></span>
+      </div>
+      <svg id="arch" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Occlusal view of the arch"></svg>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>Design summary</h2><button class="btn" id="copyText" type="button">Copy text</button></div>
+      <ul class="summary" id="summary"></ul>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" role="group" aria-label="Arch">
+          <button type="button" id="aU" data-arch="upper">Upper</button>
+          <button type="button" id="aL" data-arch="lower">Lower</button>
+        </div>
+        <div class="seg" role="group" aria-label="Tooth notation">
+          <button type="button" id="nF" data-not="fdi">FDI</button>
+          <button type="button" id="nP" data-not="palmer">Palmer</button>
+        </div>
+        <div class="seg" role="group" aria-label="Drawing style">
+          <button type="button" id="sR" data-style="real">Realistic</button>
+          <button type="button" id="sC" data-style="col">Colour-coded</button>
+        </div>
+      </div>
+      <div class="tools" role="group" aria-label="Tools" id="tools"></div>
+      <div class="seg" id="subopts"></div>
+      <p class="hint" id="hint"></p>
+      <div class="row">
+        <button class="btn" id="undo" type="button">Undo</button>
+        <button class="btn" id="redo" type="button">Redo</button>
+        <button class="btn" id="clearArch" type="button">Reset this arch</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <span class="lbl">Denture type</span>
+      <div class="seg" id="types"></div>
+      <div class="seg" id="flange"></div>
+      <div class="seg" id="obtp"></div>
+    </section>
+
+    <section class="panel">
+      <span class="lbl" id="connLbl">Major connector</span>
+      <div class="seg" id="connectors"></div>
+    </section>
+
+    <section class="panel">
+      <span class="lbl">Lab card details</span>
+      <div class="fields">
+        <label class="f" id="patWrap">Patient / hospital no.<input type="text" id="fPatient" autocomplete="off"></label>
+        <label class="f">Date<input type="date" id="fDate"></label>
+        <label class="f">Clinician<input type="text" id="fClin" autocomplete="off"></label>
+        <label class="f">Stage<input type="text" id="fStage" autocomplete="off"></label>
+        <label class="f">Shade<input type="text" id="fShade" autocomplete="off"></label>
+        <label class="f">Mould<input type="text" id="fMould" autocomplete="off"></label>
+        <label class="f wide">Instructions to lab<textarea id="fNotes"></textarea></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <span class="lbl">Card image for the notes</span>
+      <div class="row">
+        <button class="btn primary" id="make" type="button">Create card image</button>
+        <button class="btn" id="copyImg" type="button" disabled>Copy image</button>
+      </div>
+      <p class="hint" id="exHint">Includes every arch you have designed. If Copy is blocked, long-press (phone) or right-click (desktop) the image to copy or save it.</p>
+      <img id="preview" alt="Lab card image preview" hidden>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(()=>{
+// ---------- Geometry ----------
+const MD={upper:[8.5,6.5,7.5,7,6.5,10,9,8.5],lower:[5.2,5.8,6.8,7,7.2,11,10.5,10]};
+const BL={upper:[7,6.2,8,9,9,11,11,10],lower:[5.8,6,7.5,7.5,8,10.5,10,9.5]};
+const CP={upper:{A:0.075,c:13,wd:9,B:0.0045},lower:{A:0.085,c:11,wd:8,B:0.005}};
+const GAP=0.35, DS=0.1;
+const C={metal:'#2C4A8C',metalLt:'#B9C6E4',mesh:'#E8EDF7',ww:'#B4641E',guide:'#1D2430',tooth:'#FFFFFF',toothLn:'#4A5260',
+  den:'#F6EFDD',denLn:'#8A7A5A',miss:'#A0A6B0',label:'#3B4856',ov:'#8FA3D3',gold:'#C99A1E'};
+const G={};
+for(const a of ['upper','lower']){
+  const p=CP[a];let x=0,y=0,th=0;const X=[0],Y=[0],T=[0];
+  for(let i=1;i<1000;i++){const s=i*DS;th+=(p.A*Math.exp(-(((s-p.c)/p.wd)**2))+p.B)*DS;x+=Math.cos(th)*DS;y+=Math.sin(th)*DS;X.push(x);Y.push(y);T.push(th)}
+  const t=[];let cum=0;
+  for(let k=0;k<8;k++){const w=MD[a][k];t.push({k:k+1,s0:cum,s1:cum+w,sc:cum+w/2,w:w/2,h:BL[a][k]/2});cum+=w+GAP}
+  G[a]={X,Y,T,t,flip:a==='upper'?1:-1};
+}
+// ---------- spacing: extra gaps between adjacent teeth (warps arch position) ----------
+function spGaps(a){const ar=typeof S!=='undefined'&&S.arches&&S.arches[a],sp=(ar&&ar.space)||{},key=JSON.stringify(sp),g=G[a];if(g._sk===key)return g._sp;
+  const R=[0,0,0,0,0,0,0],L=[0,0,0,0,0,0,0];let m=0;
+  for(const k in sp){const v=Math.max(0,+sp[k]||0);if(!v)continue;const [A1,B1]=k.split('|');if(A1[0]!==B1[0])m=v;else (A1[0]==='R'?R:L)[Math.min(+A1[1],+B1[1])-1]=v}
+  g._sk=key;g._sp={R,L,m,any:m>0||R.some(x=>x)||L.some(x=>x)};return g._sp}
+function W(a,s){if(!s)return 0;const sp=spGaps(a);if(!sp.any)return s;const q=Math.abs(s),arr=s<0?sp.R:sp.L,t=G[a].t;let p=q+sp.m/2;
+  for(let i=0;i<7;i++)if(arr[i])p+=arr[i]*Math.max(0,Math.min(1,(q-t[i].s1)/GAP));return s<0?-p:p}
+function Winv(a,p){const sp=spGaps(a);if(!sp.any)return p;const sg=p<0?-1:1,arr=p<0?sp.R:sp.L,t=G[a].t;let P=Math.abs(p)-sp.m/2,cum=0;if(P<=0)return 0;
+  for(let i=0;i<7;i++){if(!arr[i])continue;const a0=t[i].s1;if(P<=a0+cum)return sg*(P-cum);if(P<=a0+cum+GAP+arr[i])return sg*(a0+(P-cum-a0)/(GAP+arr[i])*GAP);cum+=arr[i]}
+  return sg*(P-cum)}
+function frame(a,s){return framePhys(a,W(a,s))}
+const spSplit=a=>S.arches[a].gapSplit!==false;
+function gapBetween(a,A1,B1){const sp=S.arches[a].space||{};return +(sp[embKey(A1,B1)]||0)>0}
+// true where s lies in an opened gap between two standing teeth and the framework is to be kept out of it
+function gapNotch(a,s){if(isAcr(a)||!spSplit(a))return false;const sp=spGaps(a);if(!sp.any)return false;const T=S.arches[a].teeth,q=Math.abs(s),side=s<0?'R':'L',arr=s<0?sp.R:sp.L,t=G[a].t,M=0.45;
+  if(sp.m&&q<M&&T.R1.st==='p'&&T.L1.st==='p')return true;
+  for(let i=0;i<7;i++)if(arr[i]&&T[side+(i+1)].st==='p'&&T[side+(i+2)].st==='p'&&q>=t[i].s1-M&&q<=t[i].s1+GAP+M)return true;return false}
+const notched=(a,dfn,dep=3.2)=>s=>gapNotch(a,s)?Math.max(dfn(s),hb(a,s)+dep):dfn(s);
+function framePhys(a,s){
+  const g=G[a],m=Math.min(Math.abs(s)/DS,g.X.length-2),i=Math.floor(m),f=m-i;
+  const x=g.X[i]+(g.X[i+1]-g.X[i])*f,y=g.Y[i]+(g.Y[i+1]-g.Y[i])*f,th=g.T[i]+(g.T[i+1]-g.T[i])*f;
+  const sd=s<0?-1:1,v=g.flip;
+  return {P:[sd*x,v*y],D:[sd*Math.cos(th),v*Math.sin(th)],N:[-sd*Math.sin(th),v*Math.cos(th)]};
+}
+function hb(a,s){
+  const t=G[a].t,q=Math.abs(s);
+  if(q<=t[0].sc)return t[0].h; if(q>=t[7].sc)return t[7].h;
+  for(let k=0;k<7;k++){if(q<=t[k+1].sc){const f=(q-t[k].sc)/(t[k+1].sc-t[k].sc);return t[k].h+(t[k+1].h-t[k].h)*f}}
+  return t[7].h;
+}
+function Q(a,s,d){const F=frame(a,s);return [F.P[0]+d*F.N[0],F.P[1]+d*F.N[1]]}
+function curve(a,s0,s1,dfn,step=0.6){
+  if(!spGaps(a).any){const n=Math.max(2,Math.ceil(Math.abs(s1-s0)/step)),out=[];
+    for(let i=0;i<=n;i++){const s=s0+(s1-s0)*i/n;out.push(Q(a,s,dfn(s)))}return out}
+  const p0=W(a,s0),p1=W(a,s1),n=Math.max(2,Math.ceil(Math.abs(p1-p0)/step)),out=[];
+  for(let i=0;i<=n;i++){const p=p0+(p1-p0)*i/n,s=i===0?s0:i===n?s1:Winv(a,p),F=framePhys(a,p),d=dfn(s);out.push([F.P[0]+d*F.N[0],F.P[1]+d*F.N[1]])}
+  return out;
+}
+const f2=n=>Math.round(n*100)/100;
+const pts=p=>p.map(q=>f2(q[0])+','+f2(q[1])).join(' ');
+const pathOf=p=>'M'+p.map(q=>f2(q[0])+' '+f2(q[1])).join('L')+'Z';
+
+// tooth outline in local coords: u = distal, v = buccal
+const SHAPE=[null,{n:2.7,tp:.5},{n:2.6,tp:.5},{n:2.1,tp:.32},{n:2.3,tp:.12},{n:2.4,tp:.1},{n:3.4,tp:.05},{n:3.4,tp:.05},{n:3.2,tp:.06}];
+function se(W,H,k,al){const {n,tp}=SHAPE[k];const c=Math.cos(al),s=Math.sin(al);
+  let u=W*Math.sign(c)*Math.pow(Math.abs(c),2/n),v=H*Math.sign(s)*Math.pow(Math.abs(s),2/n);
+  if(v<0)u*=1-tp*Math.abs(s);return [u,v]}
+function outline(t,o=0){const p=[];for(let i=0;i<64;i++)p.push(se(t.w+o,t.h+o,t.k,i/64*Math.PI*2));return p}
+function ribbon(cl,t0,t1){
+  const L=[],R=[];for(let i=0;i<cl.length;i++){const a=cl[Math.max(0,i-1)],b=cl[Math.min(cl.length-1,i+1)];
+    let dx=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;const th=(t0+(t1-t0)*i/(cl.length-1))/2;
+    L.push([cl[i][0]-dy*th,cl[i][1]+dx*th]);R.push([cl[i][0]+dy*th,cl[i][1]-dx*th])}
+  const e=cl[cl.length-1];
+  return `<path d="${pathOf(L.concat(R.reverse()))}"/><circle cx="${f2(e[0])}" cy="${f2(e[1])}" r="${f2(t1/2)}"/>`;
+}
+const CC={rest:'#1E3A8A',circ:'#D32F2F',cc:'#E8590C',ibar:'#7B1FA2',tbar:'#827717',ring:'#0288D1',ww:'#8D5524',gold:'#C99A1E',recip:'#2E7D32',guide:'#1D2430',ov:'#26A69A',pp:'#00838F',gasket:'#9575CD',rring:'#3F51B5',mcrown:'#6D4C41',pcrown:'#AD1457',kb:'#C2185B',loc:'#455A64',nova:'#3949AB',tele:'#00695C'};
+const LEG=[['rest','Rest','dot'],['circ','Cast circumferential','arc'],['cc','Cast C clasp','arrow'],['ibar','Cast I-bar','arc'],['tbar','Cast T-bar (Roach)','arc'],['ring','Cast ring clasp','arc'],['ww','Wrought wire clasp','arc'],['gold','Wrought gold clasp','arc'],['recip','Reciprocal arm','arc'],['rring','Ring rest','tele'],['pp','Proximal plate','bar'],['gasket','Gasket (window)','tele'],['guide','Guide plane','bar'],['ov','Overlay','quad'],['kb','Kennedy bar','bar'],['loc','Locator implant','imp'],['nova','Novaloc implant','imp'],['tele','Telescopic crown','tele'],['mcrown','Milled crown','tele'],['pcrown','Precision attachment','bar']];
+const PAL={
+  col:{C:{metal:'#2C4A8C',metalLt:'#B9C6E4',den:'#F6EFDD',denLn:'#8A7A5A',tooth:'#FFFFFF',toothLn:'#4A5260',miss:'#A0A6B0',acr:'#F2B0B8',acrLn:'#B5707A'},
+    CC:{rest:'#1E3A8A',circ:'#D32F2F',cc:'#E8590C',ibar:'#7B1FA2',tbar:'#827717',ring:'#0288D1',ww:'#8D5524',gold:'#C99A1E',recip:'#2E7D32',guide:'#1D2430',ov:'#26A69A',pp:'#00838F',gasket:'#9575CD',rring:'#3F51B5',mcrown:'#6D4C41',pcrown:'#AD1457',kb:'#C2185B',loc:'#455A64',nova:'#3949AB',tele:'#00695C'}},
+  real:{C:{metal:'#2B2F33',metalLt:'#8E949B',den:'#F3DB96',denLn:'#2B2F33',tooth:'#FFFFFF',toothLn:'#2B2F33',miss:'#6B7078',acr:'#F2B0B8',acrLn:'#2B2F33'},
+    CC:{rest:'#2B2F33',circ:'#8E949B',cc:'#8E949B',ibar:'#8E949B',tbar:'#8E949B',ring:'#8E949B',ww:'#B08D57',gold:'#C99A1E',recip:'#8E949B',guide:'#1D2430',ov:'#8E949B',pp:'#8E949B',gasket:'#B39DDB',rring:'#8E949B',mcrown:'#5D6D7E',pcrown:'#2B2F33',kb:'#8E949B',loc:'#455A64',nova:'#3949AB',tele:'#2B2F33'}}};
+const PEEKC={col:{metal:'#8A7346',metalLt:'#EADFC6',mesh:'#F6F0E2'},real:{metalLt:'#CDBB92',mesh:'#F3ECDC'}};
+const isPeek=a=>!!a&&S.arches[a]&&S.arches[a].fmat==='peek'&&!isAcr(a);
+function applyStyle(a){const st=S.style==='col'?'col':'real',P=PAL[st];Object.assign(C,P.C);Object.assign(CC,P.CC);
+  if(isPeek(a)){const grey=P.C.metalLt;Object.assign(C,PEEKC[st]);if(st==='real')for(const k in CC)if(CC[k]===grey)CC[k]=C.metalLt}}
+function arrowHead(cl){const e=cl[cl.length-1],q=cl[cl.length-4];let dx=e[0]-q[0],dy=e[1]-q[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
+  const tip=[e[0]+dx*2,e[1]+dy*2],b1=[e[0]-dy*1.25-dx*0.4,e[1]+dx*1.25-dy*0.4],b2=[e[0]+dy*1.25-dx*0.4,e[1]-dx*1.25-dy*0.4];
+  return `<path d="${pathOf([tip,b1,b2])}" stroke-linejoin="round"/>`}
+function arm(t,sgn,dir,a0,a1,off=0.55){ // sgn: origin side (+1 distal,-1 mesial); dir +1 = via buccal first
+  const base=sgn>0?0:Math.PI,cl=[];
+  for(let i=0;i<=30;i++){const tt=(a0+(a1-a0)*i/30)*Math.PI/180;const al=base+(sgn>0?1:-1)*dir*tt;cl.push(se(t.w+off,t.h+off,t.k,al))}
+  return cl;
+}
+
+// ---------- State ----------
+const SIDES=['R','L'];
+const KEYS=[];for(let k=8;k>=1;k--)KEYS.push('R'+k);for(let k=1;k<=8;k++)KEYS.push('L'+k);
+const CONN={upper:[['plate','Palatal plate'],['ap','Anterior–posterior palatal strap'],['strap','Midpalatal strap'],['horseshoe','Horseshoe'],['none','None']],
+            lower:[['bar','Lingual bar'],['lplate','Lingual plate'],['sublingual','Sublingual bar'],['none','None']]};
+const MATS={cast:['Cast','cast',0.25],wrought:['Wrought wire','wrought wire',0.5],gold:['Wrought gold','wrought gold',0.5]};
+const CASTD=[['circ','Circumferential'],['cc','C clasp'],['ring','Ring'],['ibar','I-bar'],['tbar','T-bar (Roach)'],['gasket','Gasket (window)']];
+const WROD=[['circ','Circumferential'],['cc','C clasp'],['ibar','I-bar'],['tbar','T-bar (Roach)'],['gasket','Gasket (window)']];
+function claspText(c){if(c.type==='gasket')return 'window in the denture base lined with a resilient gasket (soft liner) encircling the tooth, engaging the cervical undercut';
+const m=MATS[c.mat||'cast'],o=c.o==='m'?'mesial':'distal',uc=`(${m[2]} mm undercut)`,pre=m[1];
+  if(c.type==='cc')return `${pre} C clasp, tip ${c.o==='d'?'forward (mesially)':'backward (distally)'} ${uc}`;
+  if(c.type==='ibar')return `${pre} I-bar approaching from ${o} ${uc}`;
+  if(c.type==='tbar')return `${pre} Roach T-bar approaching from ${o} ${uc}`;
+  if(c.type==='ring')return `${pre} ring clasp from ${o} ${uc}`;
+  return `${pre} circumferential clasp from ${o} ${uc}`}
+const cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
+function migrate(st){['upper','lower'].forEach(a=>{const r=st.arches&&st.arches[a];if(!r)return;KEYS.forEach(K=>{const c=r.teeth[K]&&r.teeth[K].clasp;if(c&&!c.mat){if(c.type==='ww'){c.type='circ';c.mat='wrought'}else if(c.type==='gold'){c.type='circ';c.mat='gold'}else c.mat='cast'}})})}
+function nbKey(K,o){const sd=K[0],k=+K[1];if(o==='d')return k<8?sd+(k+1):null;return k>1?sd+(k-1):(sd==='R'?'L1':'R1')}
+function blankTooth(k){return {st:k===8?'n':'p',rest:{m:false,d:false,c:false},clasp:null,recip:null,guide:{m:false,d:false},ov:{mb:false,db:false,ml:false,dl:false},kb:false,imp:null,tele:null}}
+function blankArch(a){const t={};KEYS.forEach(K=>t[K]=blankTooth(+K[1]));return {teeth:t,conn:a==='upper'?'plate':'bar',ann:[],type:'cocr',flange:'flanged'}}
+const TYPES={cocr:'Cobalt-chrome',acrylic:'Acrylic',immediate:'Immediate acrylic',obturator:'Obturator'};
+const ACONN={upper:[['plate','Full palatal coverage'],['horseshoe','Horseshoe (palate free)'],['none','None']],lower:[['lflange','Lingual flange'],['none','None']]};
+const atype=a=>S.arches[a].type||'cocr';
+const isObt=a=>atype(a)==='obturator';
+const OBT0={stage:'definitive',bulb:'hollow',height:'',liner:'no',frame:'cocr',bv:'',bh:''};
+const obt=a=>Object.assign({},OBT0,S.arches[a].obt||{});
+const isAcr=a=>atype(a)==='acrylic'||atype(a)==='immediate'||(isObt(a)&&obt(a).frame==='acrylic');
+const connList=a=>isAcr(a)?ACONN[a]:CONN[a];
+const isRep=t=>t.st==='r'||t.st==='e';
+function typeName(a){const T=S.arches[a].teeth,comp=KEYS.every(K=>+K[1]===8||T[K].st!=='p');const ty=atype(a);
+  if(ty==='obturator'){const o=obt(a);return {surgical:'Surgical obturator',interim:'Interim obturator',definitive:'Definitive obturator'}[o.stage]+(o.frame==='acrylic'?' (acrylic)':isPeek(a)?' (PEEK framework)':' (cobalt-chromium framework)')}
+  if(ty==='cocr')return isPeek(a)?'PEEK partial denture':'Cobalt-chromium partial denture';
+  const base=ty==='immediate'?'Immediate acrylic ':'Acrylic ';return base+(comp?'complete denture':'partial denture')}
+function cardTitle(arches){const n=[...new Set(arches.map(typeName))];return n.length===1?n[0]+' design':'Denture design'}
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function example(){
+  const u=blankArch('upper'),T=u.teeth;u.conn='ap';
+  T.R6.st='r';T.L5.st='r';T.L6.st='r';T.L7.st='r';
+  T.R7.rest.m=true;T.R7.clasp={type:'circ',o:'m'};T.R7.recip={o:'m'};
+  T.R5.rest.d=true;T.R5.clasp={type:'circ',o:'d'};T.R5.recip={o:'d'};
+  T.L4.rest.m=true;T.L4.clasp={type:'ibar',o:'d'};T.L4.guide.d=true;
+  T.L3.rest.c=true;T.R3.rest.c=true;
+  return {arch:'upper',notation:'fdi',example:true,arches:{upper:u,lower:blankArch('lower')},
+    fields:{patient:'Example patient',date:today(),clin:'',stage:'Framework try-in',shade:'A2',mould:'',notes:'Survey with vertical path of insertion. Tripod model and return with framework for try-in.'}};
+}
+let S;const KEY='chromecard-v1';
+const EMBED=!!window.CC_EMBED;
+function blankDesign(){return {arch:'upper',notation:'palmer',style:'real',example:false,arches:{upper:blankArch('upper'),lower:blankArch('lower')},fields:{patient:'',date:today(),clin:'',stage:'',shade:'',mould:'',notes:''}}}
+if(EMBED)S=blankDesign();else{try{const raw=localStorage.getItem(KEY);if(raw)S=JSON.parse(raw)}catch(e){}}
+if(!S||!S.arches)S=example();
+if(!S.style)S.style='real';
+migrate(S);
+if(S.arches.lower.conn==='kennedy'){S.arches.lower.conn='bar';['R3','R2','R1','L1','L2','L3'].forEach(K=>{if(S.arches.lower.teeth[K].st==='p')S.arches.lower.teeth[K].kb=true})}
+let cDir='fwd',impType='loc';
+const IMP={loc:['Locator','L'],nova:['Novaloc','N']};
+let teleType='con';const TELE={con:['Conical (Konus)','conical (Konus)'],par:['Parallel-walled','parallel-walled']};
+let claspMat='cast';
+let tool='teeth',claspType='circ',penColor='#C62828';
+const hist=[],fut=[];
+const A=()=>S.arches[S.arch];
+function save(){if(EMBED){postUp();return}try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let upT=null;function postUp(){clearTimeout(upT);upT=setTimeout(()=>{try{window.parent.postMessage({type:'cc-update',state:JSON.parse(JSON.stringify(S)),text:textSummary()},'*')}catch(e){}},120)}
+function commit(fn){hist.push(JSON.stringify(S.arches));if(hist.length>80)hist.shift();fut.length=0;fn();if(S.example){S.example=false}render();save()}
+
+// ---------- Notation ----------
+const QN={upper:{R:1,L:2},lower:{R:4,L:3}};
+function tname(a,K){return S.notation==='palmer'?(a==='upper'?'U':'L')+K[0]+K[1]:String(QN[a][K[0]]*10+ +K[1])}
+
+// ---------- Analysis ----------
+function sRange(a,K){const t=G[a].t[+K[1]-1];return K[0]==='R'?[-t.s1,-t.s0]:[t.s0,t.s1]}
+function trimmedSeq(a){
+  const T=S.arches[a].teeth;let seq=KEYS.slice();
+  const trim=first=>{const end=()=>first?seq[0]:seq[seq.length-1],drop=()=>first?seq.shift():seq.pop();
+    if(+end()[1]===8&&T[end()].st==='n')drop();if(+end()[1]===7&&T[end()].st==='n'&&+end()[1]===7&&!seq.includes(end()[0]+'8'))drop()};
+  trim(true);trim(false);return seq;
+}
+function runs(a,pred){const T=S.arches[a].teeth,seq=trimmedSeq(a),out=[];let cur=null;
+  seq.forEach((K,i)=>{if(pred(T[K])){if(!cur){cur={keys:[],i0:i};out.push(cur)}cur.keys.push(K);cur.i1=i}else cur=null});
+  return {seq,out}}
+function kennedy(a){
+  const {seq,out}=runs(a,t=>t.st!=='p');
+  if(!out.length)return {cls:null,text:'No edentulous spaces'};
+  if(out.length===1&&out[0].keys.length===seq.length)return {cls:null,text:'Edentulous'};
+  const fe=out.filter(r=>r.i0===0||r.i1===seq.length-1);
+  let cls,mods;
+  if(fe.length>=2){cls='I';mods=out.length-2}
+  else if(fe.length===1){cls='II';mods=out.length-1}
+  else if(out.length===1&&out[0].keys.some(K=>K==='R1')&&out[0].keys.some(K=>K==='L1')){cls='IV';mods=0}
+  else{cls='III';mods=out.length-1}
+  return {cls,mods,text:'Kennedy Class '+cls+(mods?', mod. '+mods:'')};
+}
+function arm_end(a,side){ // signed s of distal extent on a side
+  const T=S.arches[a].teeth;for(let k=8;k>=1;k--){const t=T[side+k];if(t.st!=='n'){const g=G[a].t[k-1];return (side==='R'?-1:1)*(g.sc+g.w*.55)}}return 0}
+let PC={};
+function presetPolys(a){
+  const c=S.arches[a].conn;if(c==='none')return [];
+  const R=arm_end(a,'R'),L=arm_end(a,'L'),t=G[a].t,h=s=>hb(a,s);
+  const band=(s0,s1,d1,d2)=>curve(a,s0,s1,d1).concat(curve(a,s1,s0,d2));
+  if(c==='plate')return [curve(a,R,L,notched(a,s=>h(s)+0.4))];
+  if(c==='horseshoe')return [band(R,L,s=>h(s)+6,s=>h(s)+14)];
+  if(c==='strap'){const s0=t[4].s0,s1=Math.min(t[5].s1+1,Math.abs(R)),s1b=Math.min(t[5].s1+1,L);
+    return [curve(a,-s1,-s0,s=>h(s)+6).concat(curve(a,s0,s1b,s=>h(s)+6))]}
+  if(c==='ap'){const sa=t[2].s1,sbR=Math.min(t[6].sc,Math.abs(R)),sbL=Math.min(t[6].sc,L);
+    const out=[curve(a,-sbR,-sa,s=>h(s)+6).concat(curve(a,sa,sbL,s=>h(s)+6))];
+    if(sbR-sa>18&&sbL-sa>18)out.push(curve(a,-(sbR-8),-(sa+8),s=>h(s)+15).concat(curve(a,sa+8,sbL-8,s=>h(s)+15)));
+    return out}
+  if(c==='bar'||c==='kennedy')return [band(R,L,s=>h(s)+2.5,s=>h(s)+7.5)];
+  if(c==='lplate')return [band(R,L,notched(a,s=>h(s)-1.3),s=>h(s)+7.5)];
+  if(c==='lflange')return [band(R,L,notched(a,s=>h(s)-0.2),s=>h(s)+8)];
+  if(c==='sublingual')return [band(R,L,s=>h(s)+6,s=>h(s)+11.5)];
+  return [];
+}
+function connPolys(a){if(!PC[a])PC[a]=S.arches[a].shape||presetPolys(a);return PC[a]}
+function segD(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy;let u=l?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l:0;u=Math.max(0,Math.min(1,u));return Math.hypot(p[0]-a[0]-u*dx,p[1]-a[1]-u*dy)}
+function rdp(p,tol){if(p.length<3)return p.slice();let md=0,mi=0;const a=p[0],b=p[p.length-1];
+  for(let i=1;i<p.length-1;i++){const d=segD(p[i],a,b);if(d>md){md=d;mi=i}}
+  if(md>tol)return rdp(p.slice(0,mi+1),tol).slice(0,-1).concat(rdp(p.slice(mi),tol));return [a,b]}
+function simplify(p,tol){let fi=0,fd=0;p.forEach((q,i)=>{const d=Math.hypot(q[0]-p[0][0],q[1]-p[0][1]);if(d>fd){fd=d;fi=i}});
+  const A1=rdp(p.slice(0,fi+1),tol),B1=rdp(p.slice(fi).concat([p[0]]),tol);return A1.slice(0,-1).concat(B1.slice(0,-1)).map(q=>[f2(q[0]),f2(q[1])])}
+let biteType='flat',biteMat='acrylic',olTarget='conn',restMode='occ',dSide='R',crownType='milled',crownFeats=['guide','rest','ledge'],attType='extra',gapMM=2;
+const CFEAT={guide:'milled guide plane',rest:'rest seat',ledge:'lingual ledge for reciprocation'};
+const olKey=()=>olTarget==='saddle'?'sshape':olTarget==='mesh'?'mshape':olTarget==='defect'?'defect':'shape';
+function editPolys(a){if(olTarget==='defect')return S.arches[a].defect||[];
+  if(olTarget==='saddle')return S.arches[a].sshape?S.arches[a].sshape:saddleAuto(a).map(p=>simplify(p,0.4));
+  if(olTarget==='mesh')return S.arches[a].mshape?S.arches[a].mshape:meshAuto(a).map(p=>simplify(p,0.4));
+  return S.arches[a].shape?S.arches[a].shape:presetPolys(a).map(p=>simplify(p,0.45))}
+function smoothPath(p){const n=p.length;if(n<3)return pathOf(p);let d=`M${f2(p[0][0])} ${f2(p[0][1])}`;
+  for(let i=0;i<n;i++){const p0=p[(i-1+n)%n],p1=p[i],p2=p[(i+1)%n],p3=p[(i+2)%n];
+    d+=`C${f2(p1[0]+(p2[0]-p0[0])/6)} ${f2(p1[1]+(p2[1]-p0[1])/6)} ${f2(p2[0]-(p3[0]-p1[0])/6)} ${f2(p2[1]-(p3[1]-p1[1])/6)} ${f2(p2[0])} ${f2(p2[1])}`}
+  return d+'Z'}
+function pip(pt,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];
+  if((a[1]>pt[1])!==(b[1]>pt[1])&&pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c}
+function inConn(a,pt){let n=0;connPolys(a).forEach(p=>{if(pip(pt,p))n++});return n%2===1}
+function connOuter(a,s){if(!connPolys(a).length)return null;const h=hb(a,s);for(let d=h-1.5;d<h+30;d+=0.5){if(inConn(a,Q(a,s,d)))return d}return null}
+// ---------- obturators: maxillary defect ----------
+const DPRE=[['I','Unilateral (to midline)'],['II','Unilateral posterior'],['III','Central palatal'],['IV','Crossing midline'],['V','Bilateral posterior'],['VI','Anterior']];
+function defectPreset(a,k,side){const t=G[a].t,h=s=>hb(a,s),sg=side==='L'?1:-1,end=t[7].s1+3,yP=Q(a,end,0)[1]+6,buc=s=>-(h(s)+3);
+  let p=[];
+  if(k==='I'){p=curve(a,0,sg*end,buc,0.8);const e=p[p.length-1];p.push([e[0],yP],[0,yP])}
+  else if(k==='II'){const s0=sg*t[3].s0;p=curve(a,s0,sg*end,buc,0.8);const e=p[p.length-1],m=Q(a,s0,h(s0)+9);p.push([e[0],yP],[0,yP],[0,m[1]],m)}
+  else if(k==='III'){const c=Q(a,0,h(0)+22);for(let i=0;i<12;i++){const an=i/12*Math.PI*2;p.push([c[0]+7*Math.cos(an),c[1]+9*Math.sin(an)])}}
+  else if(k==='IV'){const s0=-sg*t[1].s1;p=curve(a,s0,sg*end,buc,0.8);const e=p[p.length-1],m=Q(a,s0,h(s0)+3);p.push([e[0],yP],[-sg*6,yP],[-sg*5,m[1]+14],m)}
+  else if(k==='V'){const s0=t[5].s0;const R=curve(a,-s0,-end,buc,0.8),L=curve(a,end,s0,buc,0.8);const mR=Q(a,-s0,h(s0)+4),mL=Q(a,s0,h(s0)+4);
+    p=R.concat([[R[R.length-1][0],yP],[L[0][0],yP]],L,[mL,mR])}
+  else if(k==='VI'){const s1=t[2].s1;p=curve(a,-s1,s1,buc,0.8);p.push(Q(a,s1,h(s1)+4),[0,Q(a,0,h(0)+12)[1]],Q(a,-s1,h(-s1)+4))}
+  return [simplify(p,0.5)]}
+function inDefect(a,pt){const d=S.arches[a].defect||[];let n=0;d.forEach(p=>{if(pip(pt,p))n++});return n%2===1}
+const defectTeeth=a=>KEYS.filter(K=>!(+K[1]===8&&S.arches[a].teeth[K].st==='n')&&inDefect(a,toothXf(a,K).F.P));
+function aramany(a){const d=S.arches[a].defect;if(!d||!d.length)return null;
+  const lost=defectTeeth(a),has=K=>lost.includes(K),T=S.arches[a].teeth;
+  if(!lost.length)return {cls:'III',text:'Aramany Class III'};
+  const lR=lost.some(K=>K[0]==='R'),lL=lost.some(K=>K[0]==='L');
+  const xs=d.flat().map(q=>q[0]),cross=Math.min(...xs)<-3&&Math.max(...xs)>3;
+  let cls;
+  if(lR!==lL&&!cross){const sd=lR?'R':'L';cls=(has(sd+'1')||has(sd+'2')||has(sd+'3'))?'I':'II'}
+  else{const ant=has('R1')||has('L1'),pR=has('R6')||has('R7'),pL=has('L6')||has('L7');
+    if(ant&&!pR&&!pL)cls='VI';else if(!ant&&pR&&pL)cls='V';else if(ant&&(pR!==pL))cls='IV';else if(lR!==lL)cls=(has('R1')||has('L1'))?'I':'II';else cls='IV'}
+  const stand=KEYS.filter(K=>+K[1]!==8&&T[K].st==='p');
+  return {cls,text:'Aramany Class '+cls+(stand.length?'':' (no standing teeth)')}}
+// ---------- collets: base extended into palatal/lingual embrasures ----------
+const embKey=(A1,B1)=>[A1,B1].sort((x,y)=>KEYS.indexOf(x)-KEYS.indexOf(y)).join('|');
+function embS(a,A1,B1){const p=sRange(a,A1),q=sRange(a,B1);return p[1]<=q[0]?(p[1]+q[0])/2:(q[1]+p[0])/2}
+function colletSVG(a){const cs=S.arches[a].collets||[];if(!cs.length)return '';const ac=isAcr(a);
+  return cs.map(k=>{const [A1,B1]=k.split('|'),sb=embS(a,A1,B1),h=hb(a,sb),w=Math.min(2.2,h*0.32);
+    const w2=Math.min(2.8,h*0.42),Lb=Q(a,sb-w2*1.3,h+1.8),Ls=Q(a,sb-w2,h+0.35),Tp=Q(a,sb,h*0.35),Rs=Q(a,sb+w2,h+0.35),Rb=Q(a,sb+w2*1.3,h+1.8),Lc=Q(a,sb-w2*0.45,h*0.75),Rc=Q(a,sb+w2*0.45,h*0.75),pt=q=>f2(q[0])+' '+f2(q[1]);
+    const edge=`M${pt(Ls)}Q${pt(Lc)} ${pt(Tp)}Q${pt(Rc)} ${pt(Rs)}`;
+    return `<path d="M${pt(Lb)}L${pt(Ls)}Q${pt(Lc)} ${pt(Tp)}Q${pt(Rc)} ${pt(Rs)}L${pt(Rb)}Z" fill="${ac?C.acr:C.metalLt}"/><path d="${edge}" fill="none" stroke="${ac?C.acrLn:C.metal}" stroke-width="0.3" stroke-linejoin="round"/>`}).join('')}
+function abutSuggest(a){const ar=aramany(a);if(!ar)return null;const T=S.arches[a].teeth,lost=defectTeeth(a);
+  const stand=KEYS.filter(K=>T[K].st==='p'&&!lost.includes(K));if(!stand.length)return {cls:ar.cls,design:'',items:[]};
+  const adj=stand.filter(K=>['m','d'].some(o=>{const n=nbKey(K,o);return n&&lost.includes(n)}));
+  const distal=sd=>{for(let k=8;k>=1;k--)if(stand.includes(sd+k))return sd+k;return null};
+  const idx=K=>KEYS.indexOf(K),out=[],add=(K,why)=>{if(K&&!out.some(x=>x[0]===K))out.push([K,why])};
+  const cls=ar.cls;let design;
+  if(['I','II','IV'].includes(cls)){design=cls==='IV'?'Linear':'Tripod';
+    const A1=adj[0]||stand[0];add(A1,'adjacent to the defect: primary abutment');
+    const cand=['R','L'].map(distal).filter(Boolean).sort((x,y)=>Math.abs(idx(y)-idx(A1))-Math.abs(idx(x)-idx(A1)));const B1=cand[0];add(B1,'most distal tooth, furthest from the defect');
+    if(A1&&B1){const lo=Math.min(idx(A1),idx(B1)),hi=Math.max(idx(A1),idx(B1)),mid=(lo+hi)/2;
+      const C1=stand.filter(K=>idx(K)>lo&&idx(K)<hi&&K!==A1&&K!==B1).sort((x,y)=>Math.abs(idx(x)-mid)-Math.abs(idx(y)-mid)+((+y[1]===4||+y[1]===5)-(+x[1]===4||+x[1]===5))*2)[0];
+      add(C1,cls==='IV'?'mid-point of the remaining arch (linear design)':'mid-arch retainer to complete the tripod')}}
+  else{design='Quadrilateral';
+    ['R','L'].forEach(sd=>{const side=stand.filter(K=>K[0]===sd);if(!side.length)return;
+      const near=adj.filter(K=>K[0]===sd)[0];
+      if(cls==='III'){add(side.find(K=>+K[1]===4||+K[1]===5)||side[0],'premolar, anterior corner of the quadrilateral');add(distal(sd),'most distal molar')}
+      else if(cls==='V'){add(near||distal(sd),'adjacent to the defect');add(side.find(K=>+K[1]===3)||side[side.length-1],'canine, anterior corner')}
+      else{add(near||side[0],'adjacent to the defect');add(distal(sd),'most distal molar')}})}
+  return {cls,design,items:out}}
+function sugSVG(a){if(!isObt(a)||obt(a).sug!=='yes')return '';const sg=abutSuggest(a);if(!sg)return '';
+  return sg.items.map(([K],i)=>{const x=toothXf(a,K),r=Math.max(x.t.w,x.t.h)+2.2;return `<circle cx="${f2(x.F.P[0])}" cy="${f2(x.F.P[1])}" r="${f2(r)}" fill="none" stroke="#0B827E" stroke-width="0.45" stroke-dasharray="1 0.6"/><circle cx="${f2(x.F.P[0]+r*0.72)}" cy="${f2(x.F.P[1]-r*0.72)}" r="1.5" fill="#0B827E"/><text x="${f2(x.F.P[0]+r*0.72)}" y="${f2(x.F.P[1]-r*0.72+0.75)}" text-anchor="middle" font-size="2" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#FFFFFF">${i+1}</text>`}).join('')}
+// schematic coronal section through the defect, for the lab card
+function sideSVG(a){const d=S.arches[a].defect;if(!d||!d.length)return '';const o=obt(a);
+  const xs=d.flat().map(q=>q[0]),cxm=xs.reduce((p,q)=>p+q,0)/xs.length,flip=cxm<0;
+  const hmm=parseFloat(String(o.height).replace(',','.')),Hs=isNaN(hmm)?22:Math.max(6,Math.min(40,hmm))*1.05,base=Math.round(Hs+26),top=base-Hs,VH=base+30;
+  const fw=o.frame==='acrylic'?[C.acr,C.acrLn]:[C.metalLt,C.metal],acr=C.acr,ln=C.acrLn;
+  let bulb='';
+  const bx0=104,bx1=176,r=6;
+  if(o.bulb==='solid')bulb=`<path d="M${bx0} ${base}V${top+r}Q${bx0} ${top} ${bx0+r} ${top}H${bx1-r}Q${bx1} ${top} ${bx1} ${top+r}V${base}Z" fill="${acr}" stroke="${ln}" stroke-width="0.8"/>`;
+  else{const wall=3.2,outer=`M${bx0} ${base}V${top+r}Q${bx0} ${top} ${bx0+r} ${top}H${bx1-r}Q${bx1} ${top} ${bx1} ${top+r}V${base}Z`,inner=`M${bx0+wall} ${base-wall}V${top+r+wall*0.6}Q${bx0+wall} ${top+wall} ${bx0+r+wall*0.6} ${top+wall}H${bx1-r-wall*0.6}Q${bx1-wall} ${top+wall} ${bx1-wall} ${top+r+wall*0.6}V${base-wall}Z`;
+    bulb=`<path d="${outer}${inner}" fill-rule="evenodd" fill="${acr}" stroke="${ln}" stroke-width="0.8"/><path d="${inner}" fill="#FFFFFF"/>`;
+    if(o.bulb==='open')bulb=`<path d="M${bx0} ${base}V${top+r}Q${bx0} ${top} ${bx0+r} ${top}H${bx0+wall+r}V${base-wall}H${bx1-wall-r}V${top}H${bx1-r}Q${bx1} ${top} ${bx1} ${top+r}V${base}Z" fill="${acr}" stroke="${ln}" stroke-width="0.8"/><path d="M${bx0+wall+r} ${top}H${bx1-wall-r}" stroke="${ln}" stroke-width="0.6" stroke-dasharray="2 1.5"/>`}
+  const liner=o.liner==='yes'?`<path d="M${bx0-1.6} ${base-2}V${top+r}Q${bx0-1.6} ${top-1.6} ${bx0+r} ${top-1.6}H${bx1-r}Q${bx1+1.6} ${top-1.6} ${bx1+1.6} ${top+r}V${base-2}" fill="none" stroke="#9575CD" stroke-width="2.4" stroke-linejoin="round"/>`:'';
+  const g=`<path d="M14 ${base+2}Q14 ${base-12} 26 ${base-14}L100 ${base-10}L100 ${base-4}L36 ${base-2}Q34 ${base+4} 30 ${base+4}Z" fill="#EADFC8" stroke="#8A7A5A" stroke-width="0.7"/>
+<path d="M19 ${base+2}h12l-1.5 16q-4.5 3-9 0Z" fill="#FFFFFF" stroke="#4A5260" stroke-width="0.7"/>
+<path d="M100 ${base-12}C ${bx0+6} ${top-10} ${bx1+8} ${top-12} ${bx1+8} ${top+10}L${bx1+10} ${base+6}" fill="none" stroke="#B71C1C" stroke-width="0.7" stroke-dasharray="2.4 1.6"/>
+${liner}${bulb}
+<path d="M30 ${base-1.5}H${bx0+2}V${base+1.6}H32Z" fill="${fw[0]}" stroke="${fw[1]}" stroke-width="0.6"/>
+<path d="M${bx0+34} ${base}h13l-1.5 16q-5 3-10 0Z" fill="${C.den}" stroke="${C.denLn}" stroke-width="0.7"/>`;
+  const mir=flip?`transform="translate(200 0) scale(-1 1)"`:'';
+  const dim=`<path d="M${flip?10:190} ${top}V${base}M${flip?7:187} ${top}h6M${flip?7:187} ${base}h6" stroke="#3B4856" stroke-width="0.6"/><text x="${flip?6:194}" y="${top-4}" text-anchor="${flip?'start':'end'}" font-size="4.2" font-family="Arial, Helvetica, sans-serif" fill="#3B4856">${isNaN(hmm)?'height not set':hmm+' mm'}</text>`;
+  const lab=(x,txt)=>`<text x="${x}" y="${VH-4}" text-anchor="middle" font-size="4.2" font-family="Arial, Helvetica, sans-serif" fill="#5B6B79">${txt}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 ${VH}" data-h="${VH}"><rect width="200" height="${VH}" fill="#FFFFFF"/>
+<text x="100" y="7" text-anchor="middle" font-size="4.4" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#0B2E4A">Coronal section through the defect (schematic, not to scale)</text>
+<g ${mir}>${g}</g>${dim}${lab(flip?140:60,'Intact side')}${lab(flip?60:140,`Defect: ${({hollow:'hollow closed bulb',open:'open-top bulb',solid:'solid bulb'})[o.bulb]}${o.liner==='yes'?', soft liner':''}`)}</svg>`}
+function defectSVG(a){const d=S.arches[a].defect;if(!d||!d.length)return '';const path=d.map(smoothPath).join('');
+  if(isObt(a))return `<path d="${path}" fill-rule="evenodd" fill="url(#bulb-${a})" stroke="#B71C1C" stroke-width="0.4" stroke-dasharray="1.2 0.8" stroke-linejoin="round"/>`;
+  return `<path d="${path}" fill-rule="evenodd" fill="#B71C1C" fill-opacity="0.12" stroke="#B71C1C" stroke-width="0.4" stroke-dasharray="1.2 0.8" stroke-linejoin="round"/>`}
+function softPalateSVG(a){if(a!=='upper'||!isObt(a))return '';const t=G[a].t,e=t[7].s1+2,R=Q(a,-e,0),L=Q(a,e,0),y=Math.max(R[1],L[1]);
+  const cx=(R[0]+L[0])/2,w=(L[0]-R[0])/2;
+  return `<path d="M${f2(R[0])} ${f2(y)}C${f2(R[0])} ${f2(y+9)} ${f2(cx-w*0.35)} ${f2(y+11)} ${f2(cx-2)} ${f2(y+11)}Q${f2(cx)} ${f2(y+15)} ${f2(cx+2)} ${f2(y+11)}C${f2(cx+w*0.35)} ${f2(y+11)} ${f2(L[0])} ${f2(y+9)} ${f2(L[0])} ${f2(y)}" fill="#F7E3E6" stroke="#C9A3AA" stroke-width="0.3"/>
+<path d="M${f2(R[0])} ${f2(y)}L${f2(L[0])} ${f2(y)}" stroke="#8796A4" stroke-width="0.3" stroke-dasharray="1 0.7"/>
+<text x="${f2(cx)}" y="${f2(y+5.5)}" text-anchor="middle" font-size="2.2" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">soft palate</text>
+<text x="${f2(L[0]-1)}" y="${f2(y-0.8)}" text-anchor="end" font-size="1.9" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">vibrating line</text>`}
+function bounds(a){
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  G[a].t.forEach(t=>[-1,1].forEach(sd=>{const F=frame(a,sd*t.sc);[t.h+8,-(t.h+16)].forEach(d=>{const p=[F.P[0]-d*F.N[0],F.P[1]-d*F.N[1]];x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1])})}));
+  if(a==='upper'&&isObt(a))y1+=18;
+  (S.arches[a].defect||[]).forEach(p=>p.forEach(q=>{x0=Math.min(x0,q[0]-1);x1=Math.max(x1,q[0]+1);y0=Math.min(y0,q[1]-1);y1=Math.max(y1,q[1]+2)}));
+  return [x0-5,y0-1,x1-x0+10,y1-y0+2];
+}
+const REAL=()=>S.style==='real';
+const SK=()=>REAL()?` stroke="${C.metal}" stroke-width="0.2" stroke-linejoin="round"`:'';
+function connectorSVG(a){const ps=connPolys(a);if(!ps.length||isAcr(a))return '';const cu=!!S.arches[a].shape;
+  return `<path d="${ps.map(p=>cu?smoothPath(p):pathOf(p)).join('')}" fill-rule="evenodd" fill="${C.metalLt}" stroke="${C.metal}" stroke-width="0.35" stroke-linejoin="round"/>`}
+function kbRuns(a){const T=S.arches[a].teeth,out=[];let cur=null;
+  const sp=!isAcr(a)&&spSplit(a);KEYS.forEach(K=>{if(T[K].st==='p'&&T[K].kb){if(cur&&sp&&gapBetween(a,cur[cur.length-1],K))cur=null;if(!cur){cur=[];out.push(cur)}cur.push(K)}else cur=null});return out}
+function kennedySVG(a){let o='';const h=s=>hb(a,s);
+  kbRuns(a).forEach(r=>{const s0=sRange(a,r[0])[0]+0.6,s1=sRange(a,r[r.length-1])[1]-0.6;
+    const band=curve(a,s0,s1,s=>h(s)-1.6).concat(curve(a,s1,s0,s=>h(s)-0.3));
+    o+=`<path d="${pathOf(band)}" fill="${CC.kb}" fill-opacity="${REAL()?1:0.85}" stroke="${REAL()?C.metal:CC.kb}" stroke-width="0.3" stroke-linejoin="round"/>`;
+    [s0,s1].forEach(s=>{const c=connOuter(a,s),d2=c!=null?c+0.6:h(s)+3,F=frame(a,s);
+      const p=[Q(a,s-0.8*Math.sign(s||1),h(s)-1),Q(a,s+0.8*Math.sign(s||1),h(s)-1),Q(a,s+0.8*Math.sign(s||1),d2),Q(a,s-0.8*Math.sign(s||1),d2)];
+      o+=`<path d="${pathOf(p)}" fill="${CC.kb}" fill-opacity="${REAL()?1:0.85}" stroke="${REAL()?C.metal:CC.kb}" stroke-width="0.3"/>`})});
+  return o}
+const MESHX={full:4.2,short:2.5,tooth:0.3};
+function meshAuto(a){
+  const T=S.arches[a].teeth,{out}=runs(a,isRep),res=[],ext=MESHX[S.arches[a].meshExt||'full']||4.2;
+  out.forEach(r=>{let s0=1e9,s1=-1e9;r.keys.forEach(K=>{const q=sRange(a,K);s0=Math.min(s0,q[0]);s1=Math.max(s1,q[1])});
+    s0-=0.3;s1+=0.3;if(r.keys.includes(lastKey(a,'R')))s0-=ext-0.3;if(r.keys.includes(lastKey(a,'L')))s1+=ext-0.3;
+    const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.2,c+0.8):h+1.2};
+    res.push(curve(a,s0,s1,s=>-hb(a,s)*0.45,0.3).concat(curve(a,s1,s0,lin)))});return res}
+const bite=a=>S.arches[a].bite||{};
+const bpMetal=a=>!isAcr(a)&&bite(a).mat==='metal';
+function biteSVG(a){const b=bite(a),h=s=>hb(a,s),T=S.arches[a].teeth;let o='';
+  if(b.ant){const t=G[a].t,s0=-t[2].s1+0.4,s1=t[2].s1-0.4;
+    const band=curve(a,s0,s1,s=>h(s)-1.5,0.4).concat(curve(a,s1,s0,s=>h(s)+(b.ant==='inclined'?5.5:7.5),0.4));
+    o+=`<path d="${pathOf(band)}" fill="url(#bp-${a})" stroke="${bpMetal(a)?C.metal:C.acrLn}" stroke-width="0.35" stroke-linejoin="round"/>`;
+    if(b.ant==='inclined'){const ln=curve(a,s0+1,s1-1,s=>h(s)+1.6,0.6);o+=`<path d="M${ln.map(q=>f2(q[0])+' '+f2(q[1])).join('L')}" fill="none" stroke="${bpMetal(a)?C.metal:C.acrLn}" stroke-width="0.3" stroke-dasharray="1 0.7"/>`}
+    const lp=Q(a,0,h(0)+(b.ant==='inclined'?3.6:4.6));o+=`<text x="${f2(lp[0])}" y="${f2(lp[1]+0.9)}" text-anchor="middle" font-size="2.4" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="${bpMetal(a)?C.metal:C.acrLn}">BP</text>`}
+  (b.post||[]).forEach(K=>{if(!T[K]||T[K].st==='n')return;const x=toothXf(a,K),pt=outline(x.t,0.35).map(([u,v])=>[x.F.P[0]+u*x.F.D[0]+v*x.B[0],x.F.P[1]+u*x.F.D[1]+v*x.B[1]]);
+    o+=`<path d="${pathOf(pt)}" fill="url(#bp-${a})" fill-opacity="0.8" stroke="${bpMetal(a)?C.metal:C.acrLn}" stroke-width="0.35"/>`});
+  return o}
+function meshPolys(a){return S.arches[a].mshape||meshAuto(a)}
+function saddlePolys(a){const c=S.arches[a].sshape;return c?c:saddleAuto(a)}
+function saddleAuto(a){
+  const T=S.arches[a].teeth,{out}=runs(a,isRep),res=[],sock=atype(a)==='immediate'&&S.arches[a].flange==='socketed';
+  const eR=KEYS.filter(K=>T[K].st==='e').map(K=>sRange(a,K));
+  out.forEach(r=>{
+    let s0=1e9,s1=-1e9;r.keys.forEach(K=>{const q=sRange(a,K);s0=Math.min(s0,q[0]);s1=Math.max(s1,q[1])});
+    s0-=0.3;s1+=0.3;
+    if(r.keys.includes(lastKey(a,'R')))s0-=5;
+    if(r.keys.includes(lastKey(a,'L')))s1+=5;
+    const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.6,c+0.8):h+1.6};
+    const bu0=(REAL()||isAcr(a))?2.8:1.6;
+    const bu=s=>sock&&eR.some(q=>s>=q[0]-0.6&&s<=q[1]+0.6)?-hb(a,s)*0.35:bu0;
+    res.push(curve(a,s0,s1,s=>-(hb(a,s)+bu(s)),0.3).concat(curve(a,s1,s0,lin)));
+  });return res;
+}
+function saddlesSVG(a){
+  const ps=saddlePolys(a),sp=S.arches[a].sshape?smoothPath:pathOf;
+  if(isAcr(a)){const cp=connPolys(a),cd=cp.length?(S.arches[a].shape?cp.map(smoothPath):cp.map(pathOf)).join(''):'';
+    const all=ps.map(sp);if(cd)all.push(cd);
+    return all.map(d=>`<path d="${d}" fill-rule="evenodd" fill="${C.acr}" stroke="${C.acrLn}" stroke-width="0.7" stroke-linejoin="round"/>`).join('')+
+      all.map(d=>`<path d="${d}" fill-rule="evenodd" fill="${C.acr}"/>`).join('')}
+  const ms=meshPolys(a),mp=S.arches[a].mshape?smoothPath:pathOf;
+  return ps.map(p=>`<path d="${sp(p)}" fill="${C.acr}" stroke="${C.acrLn}" stroke-width="0.35" stroke-linejoin="round"/>`).join('')+
+    ms.map(p=>`<path d="${mp(p)}" fill="url(#${REAL()?'meshR':'mesh'}-${a})" stroke="${C.metal}" stroke-width="${REAL()?0.3:0.35}" stroke-linejoin="round"${REAL()?' stroke-dasharray="1 0.6"':''}/>`).join('');
+}
+function lastKey(a,side){const T=S.arches[a].teeth;for(let k=8;k>=1;k--){if(T[side+k].st!=='n')return side+k}return null}
+function toothXf(a,K){const t=G[a].t[+K[1]-1],s=(K[0]==='R'?-1:1)*t.sc,F=frame(a,s);const B=[-F.N[0],-F.N[1]];
+  return {t,s,F,B,m:`matrix(${f2(F.D[0])} ${f2(F.D[1])} ${f2(B[0])} ${f2(B[1])} ${f2(F.P[0])} ${f2(F.P[1])})`}}
+function teethSVG(a){
+  const T=S.arches[a].teeth;let o='',labels='',imps='';
+  KEYS.forEach(K=>{const x=toothXf(a,K),t=x.t,tt=T[K],ol=pathOf(outline(t));
+    let g='';
+    if(tt.st==='p'){g=`<path d="${ol}" fill="${C.tooth}" stroke="${C.toothLn}" stroke-width="0.3"/>`;
+      if(t.k>=4)g+=`<path d="M${f2(-t.w*.55)} 0 L${f2(t.w*.55)} 0" stroke="#C3C9D1" stroke-width="0.25" fill="none"/>`}
+    else if(tt.st==='r'){g=`<path d="${ol}" fill="${C.den}" stroke="${C.denLn}" stroke-width="0.3"/>`}
+    else if(tt.st==='e'){g=`<path d="${ol}" fill="${C.den}" stroke="${C.denLn}" stroke-width="0.3"/><path d="${pathOf(outline(t,0.7))}" fill="none" stroke="#D32F2F" stroke-width="0.4" stroke-dasharray="0.9 0.6"/>`}
+    else if(tt.imp){g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.9 0.7"/>`}
+    else if(REAL()){g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.25 0.55" stroke-linecap="round"/>`}
+    else{const s=Math.min(t.w,t.h)*.55;g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.9 0.7"/><path d="M${-s} ${-s}L${s} ${s}M${s} ${-s}L${-s} ${s}" stroke="${C.miss}" stroke-width="0.3"/>`}
+    o+=`<g transform="${x.m}" data-tooth="${K}">${g}</g>`;
+    if(tt.crown&&tt.st==='p'&&!tt.tele){const P=x.F.P;imps+=`<text x="${f2(P[0])}" y="${f2(P[1]+0.75)}" text-anchor="middle" font-size="2.1" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="${CC.mcrown}">${tt.crown.type==='milled'?'Mc':'Pa'}</text>`}
+    if(tt.tele&&tt.st==='p'){const P=x.F.P;imps+=`<text x="${f2(P[0])}" y="${f2(P[1]+0.75)}" text-anchor="middle" font-size="2.1" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="${CC.tele}">${tt.tele==='con'?'K':'P'}</text>`}
+    if(tt.imp&&tt.st!=='p'){const c=CC[tt.imp],P=x.F.P;imps+=`<g><circle cx="${f2(P[0])}" cy="${f2(P[1])}" r="2.5" fill="#FFFFFF" stroke="${c}" stroke-width="0.55"/><circle cx="${f2(P[0])}" cy="${f2(P[1])}" r="1.75" fill="${c}"/><text x="${f2(P[0])}" y="${f2(P[1]+0.7)}" text-anchor="middle" font-size="2" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#FFFFFF">${IMP[tt.imp][1]}</text></g>`}
+    const lp=[x.F.P[0]+x.B[0]*(t.h+6.3),x.F.P[1]+x.B[1]*(t.h+6.3)];
+    labels+=`<text x="${f2(lp[0])}" y="${f2(lp[1]+0.9)}" text-anchor="middle" font-size="2.5" font-family="Arial, Helvetica, sans-serif" fill="${tt.st==='n'?'#A0A6B0':C.label}">${tname(a,K)}</text>`;
+  });return {o,labels,imps};
+}
+function fwPolys(a){const k=a+'_fw';if(!PC[k])PC[k]=connPolys(a).concat(isAcr(a)?saddlePolys(a):meshPolys(a));return PC[k]}
+function nearestOn(a,pt){let best=null;fwPolys(a).forEach(p=>{for(let i=0;i<p.length;i++){const A1=p[i],B1=p[(i+1)%p.length],dx=B1[0]-A1[0],dy=B1[1]-A1[1],l=dx*dx+dy*dy;
+  let u=l?((pt[0]-A1[0])*dx+(pt[1]-A1[1])*dy)/l:0;u=Math.max(0,Math.min(1,u));const q=[A1[0]+u*dx,A1[1]+u*dy],d=Math.hypot(q[0]-pt[0],q[1]-pt[1]);if(!best||d<best.d)best={q,d}}});return best}
+function compSVG(a){
+  const T=S.arches[a].teeth;let minor='',parts='',struts='';
+  KEYS.forEach(K=>{const tt=T[K];if(tt.st!=='p')return;const x=toothXf(a,K),t=x.t;let g='',mc='';
+    const reach=s=>{const c=connOuter(a,x.s);return c!=null?Math.max(0.8,c-t.h+0.7):3};
+    const mcSides=new Set();
+    if(tt.rest.m)mcSides.add(-1);if(tt.rest.d)mcSides.add(1);
+    const gb=tt.clasp&&(tt.clasp.type==='ibar'||tt.clasp.type==='tbar');let fromSaddle=false;
+    if(gb){const nk=nbKey(K,tt.clasp.o);fromSaddle=!!(nk&&isRep(T[nk]))}
+    const gk=tt.clasp&&tt.clasp.type==='gasket';
+    if(tt.clasp&&!gk&&(!gb||!fromSaddle))mcSides.add(tt.clasp.o==='m'?-1:1);
+    if(tt.recip)mcSides.add(tt.recip.o==='m'?-1:1);
+    if(tt.rpi)mcSides.add(tt.rpi==='m'?-1:1);
+    const cHit=connOuter(a,x.s);
+    const strut=(u,v0)=>{const w=[x.F.P[0]+u*x.F.D[0]+v0*x.B[0],x.F.P[1]+u*x.F.D[1]+v0*x.B[1]];const n=nearestOn(a,w);
+      if(n&&n.d>0.3&&n.d<45){const L=[w,[(w[0]+n.q[0])/2,(w[1]+n.q[1])/2],n.q];struts+=ribbon(L,1.5,1.5)}};
+    mcSides.forEach(sg=>{const u=sg*(t.w+0.05);mc+=`<path d="M${f2(u-0.7)} 0.6L${f2(u+0.7)} 0.6L${f2(u+0.7)} ${f2(-(t.h+reach()))}L${f2(u-0.7)} ${f2(-(t.h+reach()))}Z"/>`;if(cHit==null)strut(u,-(t.h+2.5))});
+    if(tt.rest.c&&cHit==null)strut(0,-(t.h+2.5));
+    if(tt.rring){mc+=`<path d="M-1 ${f2(-t.h-1.2)}L1 ${f2(-t.h-1.2)}L1 ${f2(-(t.h+reach()))}L-1 ${f2(-(t.h+reach()))}Z"/>`;if(cHit==null)strut(0,-(t.h+2.5))}
+    if(gk){mc+=`<path d="M-1 ${f2(-t.h-1.5)}L1 ${f2(-t.h-1.5)}L1 ${f2(-(t.h+reach()))}L-1 ${f2(-(t.h+reach()))}Z"/>`;if(cHit==null)strut(0,-(t.h+2.5))}
+    if(tt.rest.c)mc+=`<path d="M-0.8 ${f2(-t.h+0.9)}L0.8 ${f2(-t.h+0.9)}L0.8 ${f2(-(t.h+reach()))}L-0.8 ${f2(-(t.h+reach()))}Z"/>`;
+    const OVQ={db:[0,90],mb:[90,180],ml:[180,270],dl:[270,360]};let ovg='';
+    Object.entries(OVQ).forEach(([q,r])=>{if(!(tt.ov&&tt.ov[q]))return;const pp=[[0,0]];for(let i=0;i<=16;i++)pp.push(se(t.w-0.15,t.h-0.15,t.k,(r[0]+(r[1]-r[0])*i/16)*Math.PI/180));
+      ovg+=`<path d="${pathOf(pp)}" fill="${CC.ov}" fill-opacity="${REAL()?1:0.75}" stroke="${REAL()?C.metal:CC.ov}" stroke-width="0.3" stroke-linejoin="round"/>`});
+    if(tt.crown){const cr=tt.crown,cc0=CC.mcrown;
+      ovg+=`<path d="${pathOf(outline(t,0.45))}" fill="none" stroke="${cc0}" stroke-width="0.75"/><path d="${pathOf(outline(t,-0.35))}" fill="none" stroke="${cc0}" stroke-width="0.25"/>`;
+      if(cr.type==='milled'&&(cr.feats||[]).includes('ledge')){const q=[];for(let i=0;i<=16;i++){const al=(205+130*i/16)*Math.PI/180;q.push(se(t.w+0.45,t.h+0.45,t.k,al))}ovg+=`<g fill="${cc0}">${ribbon(q,1.1,1.1)}</g>`}
+      if(cr.type==='precision'){const sg=cr.o==='m'?-1:1,x0=cr.att==='intra'?sg*(t.w-2.4):sg*(t.w+0.4),wd=cr.att==='intra'?2:2.4,xa=sg>0?x0:x0-wd;
+        ovg+=`<rect x="${f2(xa)}" y="-1.3" width="${f2(wd)}" height="2.6" rx="0.4" fill="${CC.pcrown}" stroke="${C.metal}" stroke-width="0.2"/>`;mc+=''}}
+    if(tt.tele){ovg+=`<path d="${pathOf(outline(t,0.55))}" fill="none" stroke="${CC.tele}" stroke-width="0.65"/><path d="${pathOf(outline(t,-0.9))}" fill="none" stroke="${CC.tele}" stroke-width="0.35" stroke-dasharray="0.8 0.5"/>`;
+      mc+=`<path d="M-0.9 ${f2(-t.h+0.2)}L0.9 ${f2(-t.h+0.2)}L0.9 ${f2(-(t.h+reach()))}L-0.9 ${f2(-(t.h+reach()))}Z"/>`}
+    let rg='';
+    ['m','d'].forEach(sd=>{if(!tt.rest[sd])return;const sg=sd==='m'?-1:1,cx=sg*(t.w-1.4),ry=Math.min(2.2,t.h*.42);
+      rg+=`<ellipse cx="${f2(cx)}" cy="0" rx="1.5" ry="${f2(ry)}"/><path d="M${f2(cx)} ${f2(-ry*.7)}L${f2(sg*(t.w+0.5))} ${f2(-ry*.7)}L${f2(sg*(t.w+0.5))} ${f2(ry*.7)}L${f2(cx)} ${f2(ry*.7)}Z"/>`});
+    if(tt.rest.c)rg+=`<ellipse cx="0" cy="${f2(-t.h+1.3)}" rx="${f2(t.w*.55)}" ry="0.95"/>`;
+    if(tt.rring){
+      g+=`<path d="${pathOf(outline(t,1.4))}${pathOf(outline(t,0.25).reverse())}" fill-rule="evenodd" fill="${CC.rring}" stroke="${REAL()?C.metal:CC.rring}" stroke-width="0.25" stroke-linejoin="round"/>`;
+    }
+    if(rg)g+=`<g fill="${CC.rest}"${SK()}>${rg}</g>`;
+    if(tt.rpi){const sg=tt.rpi==='m'?-1:1;g+=`<g fill="${CC.pp}"${SK()}>${ribbon(arm(t,sg,1,-40,40,0.5),1.3,1.3)}</g>`}
+    if(tt.recip){const sg=tt.recip.o==='m'?-1:1;g+=`<g fill="${CC.recip}"${SK()}>${ribbon(arm(t,sg,-1,8,140),1.3,1.0)}</g>`}
+    if(tt.clasp){const sg=tt.clasp.o==='m'?-1:1,ty=tt.clasp.type,mat=tt.clasp.mat||'cast',cast=mat==='cast',col=cast?CC[ty]:(mat==='gold'?CC.gold:CC.ww);let cg='';
+      const wire=cl=>`<path d="M${cl.map(p=>f2(p[0])+' '+f2(p[1])).join('L')}" fill="none" stroke="${col}" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+      const approach=()=>{const v=t.h+3.2,cl=[];
+        if(fromSaddle){cl.push([sg*(t.w+5.5),t.h+0.6]);for(let i=0;i<=12;i++)cl.push([sg*(t.w+4.5)-sg*(t.w+4.5)*i/12,v])}
+        else{cl.push([sg*(t.w+0.4),0]);cl.push([sg*(t.w+1.6),t.h+1.6]);for(let i=0;i<=12;i++)cl.push([sg*(t.w+1.8)-sg*(t.w+1.8)*i/12,v])}
+        return cl};
+      const tA=(a0,a1)=>{const q=[];for(let i=0;i<=10;i++){const al=(a0+(a1-a0)*i/10)*Math.PI/180;q.push(se(t.w+0.5,t.h+0.5,t.k,al))}return q};
+      if(ty==='gasket'){const fr=`${pathOf(outline(t,2.5))}${pathOf(outline(t,1.3).reverse())}`,gs=`${pathOf(outline(t,1.3))}${pathOf(outline(t,0.1).reverse())}`;
+        g+=`<path d="${fr}" fill-rule="evenodd" fill="${isAcr(a)?C.acr:C.metalLt}" stroke="${isAcr(a)?C.acrLn:C.metal}" stroke-width="0.3"/><path d="${gs}" fill-rule="evenodd" fill="${CC.gasket}" stroke="${REAL()?C.metal:'#5E35B1'}" stroke-width="0.2"/>`}
+      else if(ty==='circ'){const cl=arm(t,sg,1,8,150,cast?0.55:0.5);cg=cast?ribbon(cl,1.5,0.45):wire(cl)}
+      else if(ty==='cc'){const cl=arm(t,sg,1,8,170,cast?0.55:0.5);cg=(cast?ribbon(cl,1.5,0.5):wire(cl))+arrowHead(cl)}
+      else if(ty==='ring')cg=ribbon(arm(t,sg,1,8,330),1.5,0.5);
+      else if(ty==='ibar'||ty==='tbar'){const cl=approach(),v=cl[cl.length-1][1];const up=[];for(let i=1;i<=6;i++)up.push([0,v-(v-t.h-(ty==='tbar'?0.5:0.2))*i/6]);const full=cl.concat(up);
+        if(cast){cg=ribbon(full,1.3,ty==='tbar'?1.1:1.0);cg+=ty==='tbar'?ribbon(tA(90,128),1.1,0.5)+ribbon(tA(90,52),1.1,0.5):`<path d="M-1.4 ${f2(t.h+0.1)}L1.4 ${f2(t.h+0.1)}" stroke="${col}" stroke-width="0.9" stroke-linecap="round"/>`}
+        else{cg=wire(full)+(ty==='tbar'?wire(tA(52,128)):wire([[-1.2,t.h+0.3],[1.2,t.h+0.3]]))}}
+      g+=`<g fill="${col}"${cast?SK():''}>${cg}</g>`}
+    ['m','d'].forEach(sd=>{if(!tt.guide[sd])return;const u=(sd==='m'?-1:1)*(t.w+0.2);
+      g+=`<path d="M${f2(u)} ${f2(-t.h*.55)}L${f2(u)} ${f2(t.h*.55)}" stroke="${CC.guide}" stroke-width="0.9" stroke-linecap="round"/>`});
+    if(struts){minor+=`<g fill="${isAcr(a)?C.acr:C.metalLt}" stroke="${isAcr(a)?C.acrLn:C.metal}" stroke-width="0.3">${struts}</g>`;struts=''}
+    if(mc)minor+=`<g transform="${x.m}" fill="${isAcr(a)?C.acr:C.metalLt}" stroke="${isAcr(a)?C.acrLn:C.metal}" stroke-width="0.3">${mc}</g>`;
+    if(ovg)parts+=`<g transform="${x.m}">${ovg}</g>`;
+    if(g)parts+=`<g transform="${x.m}">${g}</g>`;
+  });return {minor,parts};
+}
+function annSVG(a,interactive){
+  return S.arches[a].ann.map((n,i)=>{
+    if(n.type==='x'){const z=1.1,x=n.x,y=n.y;return `<g data-ann="${i}"><path d="M${f2(x-z)} ${f2(y-z)}L${f2(x+z)} ${f2(y+z)}M${f2(x+z)} ${f2(y-z)}L${f2(x-z)} ${f2(y+z)}" stroke="${n.c}" stroke-width="0.4" stroke-linecap="round"/>${interactive?`<circle cx="${f2(x)}" cy="${f2(y)}" r="2.4" fill="transparent"/>`:''}</g>`}
+    if(n.type==='path'){const d='M'+n.p.map(q=>f2(q[0])+' '+f2(q[1])).join('L');
+      return `<g data-ann="${i}"><path d="${d}" fill="none" stroke="${n.c}" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round"/>${interactive?`<path d="${d}" fill="none" stroke="transparent" stroke-width="3.5"/>`:''}</g>`}
+    const esc=n.text.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+    return `<text data-ann="${i}" x="${f2(n.x)}" y="${f2(n.y)}" font-size="2.8" font-family="Arial, Helvetica, sans-serif" fill="${n.c}" text-anchor="middle">${esc}</text>`}).join('');
+}
+function archSVG(a,interactive){
+  PC={};applyStyle(a);const vb=bounds(a),c=connectorSVG(a),th=teethSVG(a),cp=compSVG(a);
+  const yMid=vb[1]+vb[3]*(a==='upper'?0.62:0.38);
+  return {vb,inner:`<defs><pattern id="bulb-${a}" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="${C.acr}"/><circle cx="1" cy="1" r="0.32" fill="#B5707A"/></pattern><pattern id="mesh-${a}" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="1.6" fill="${C.mesh}"/><path d="M0 0L0 1.6M0 0L1.6 0" stroke="${C.metal}" stroke-width="0.22"/></pattern><pattern id="meshR-${a}" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0L0 1.4M0 0L1.4 0" stroke="${C.metal}" stroke-width="0.14" stroke-opacity="0.7"/></pattern><pattern id="bp-${a}" width="1.2" height="1.2" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="1.2" height="1.2" fill="${bpMetal(a)?C.metalLt:C.acr}"/><path d="M0 0L0 1.2" stroke="${bpMetal(a)?C.metal:C.acrLn}" stroke-width="0.25"/></pattern></defs>
+<rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#FFFFFF"/>
+<text x="${f2(vb[0]+1.5)}" y="${f2(yMid)}" font-size="3" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">R</text>
+<text x="${f2(vb[0]+vb[2]-1.5)}" y="${f2(yMid)}" font-size="3" font-weight="700" text-anchor="end" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">L</text>
+${softPalateSVG(a)}${saddlesSVG(a)}${defectSVG(a)}${cp.minor}${th.o}${c}${colletSVG(a)}${biteSVG(a)}${kennedySVG(a)}${cp.parts}${th.imps}${th.labels}${annSVG(a,interactive)}${interactive?sugSVG(a)+handlesSVG(a,vb):''}`};
+}
+
+let selV=null,drag=null;
+function handlesSVG(a,vb){if(tool!=='shape')return '';const ps=editPolys(a);const w=svg.getBoundingClientRect().width||600,k=vb[2]/w;
+  let o='';ps.forEach((p,pi)=>{p.forEach((q,vi)=>{const n=p[(vi+1)%p.length];
+    o+=`<circle data-mid="${pi},${vi}" cx="${f2((q[0]+n[0])/2)}" cy="${f2((q[1]+n[1])/2)}" r="${f2(5*k)}" fill="#FFFFFF" fill-opacity="0.9" stroke="#1C7293" stroke-width="${f2(1.2*k)}" stroke-dasharray="${f2(2*k)} ${f2(1.6*k)}"/>`});
+    p.forEach((q,vi)=>{const on=selV&&selV[0]===pi&&selV[1]===vi;
+    o+=`<circle data-v="${pi},${vi}" cx="${f2(q[0])}" cy="${f2(q[1])}" r="${f2(7*k)}" fill="${on?'#1C7293':'#FFFFFF'}" stroke="#1C7293" stroke-width="${f2(2*k)}"/>`})});
+  return o}
+function usedSet(arches){const u=new Set();arches.forEach(a=>{const r=S.arches[a];KEYS.forEach(K=>{const t=r.teeth[K];
+  if(t.st==='p'){if(t.rest.m||t.rest.d||t.rest.c)u.add('rest');if(t.rring)u.add('rring');if(t.clasp)u.add(t.clasp.type==='gasket'?'gasket':t.clasp.mat==='cast'?t.clasp.type:(t.clasp.mat==='gold'?'gold':'ww'));if(t.recip)u.add('recip');if(t.crown){u.add('mcrown');if(t.crown.type==='precision')u.add('pcrown')}if(t.rpi)u.add('pp');if(t.guide.m||t.guide.d)u.add('guide');
+    if(t.ov&&Object.values(t.ov).some(Boolean))u.add('ov');if(t.kb)u.add('kb');if(t.tele)u.add('tele')}
+  else if(t.imp)u.add(t.imp);if(isRep(t))u.add(isAcr(a)?'acrbase':'saddle');if(t.st==='e')u.add('ext')});if(connPolys(a).length)u.add(isAcr(a)?'acrbase':'conn');if(r.ann.some(n=>n.type==='x'))u.add('x')});return u}
+function fwLabel(arches){const fw=arches.filter(a=>!isAcr(a));return fw.length&&fw.every(isPeek)?'PEEK framework':fw.some(isPeek)?'Framework':'Metal framework'}
+function legendItems(arches){const u=usedSet(arches),out=[],L=k=>LEG.find(x=>x[0]===k);
+  if(REAL()){if(u.has('conn')||[...u].some(k=>CC[k]===C.metalLt))out.push({kind:'box',col:C.metalLt,col2:C.metal,label:fwLabel(arches)});
+    if(u.has('rest'))out.push({kind:'dot',col:CC.rest,label:'Rest'});
+    if(u.has('cc'))out.push({kind:'arrow',col:CC.cc,label:'C clasp (arrow = tip)'});
+    ['gasket','ww','gold','loc','nova','tele','mcrown','pcrown','guide'].forEach(k=>{if(u.has(k)){const d=L(k);out.push({kind:d[2],col:CC[k],label:d[1],key:k})}});
+    if(u.has('saddle')||u.has('acrbase'))out.push({kind:'box',col:C.acr,col2:C.acrLn,label:u.has('acrbase')?'Acrylic':'Acrylic saddle'});
+    if(u.has('saddle'))out.push({kind:'mesh',label:'Mesh retention'});
+    if(u.has('saddle')||u.has('acrbase'))out.push({kind:'box',col:C.den,col2:C.denLn,label:'Denture tooth'})}
+  else{LEG.forEach(d=>{if(u.has(d[0]))out.push({kind:d[2],col:CC[d[0]],label:d[1],key:d[0]})});
+    if(u.has('saddle')){out.push({kind:'box',col:C.acr,col2:C.acrLn,label:'Acrylic saddle'});out.push({kind:'mesh',label:'Mesh retention'})}
+    if(u.has('conn'))out.push({kind:'box',col:C.metalLt,col2:C.metal,label:arches.filter(a=>!isAcr(a)).every(isPeek)?'Major connector (PEEK)':'Major connector'});
+    if(u.has('acrbase'))out.push({kind:'box',col:C.acr,col2:C.acrLn,label:'Acrylic base'});
+    if(u.has('saddle')||u.has('acrbase'))out.push({kind:'box',col:C.den,col2:C.denLn,label:'Denture tooth'})}
+  if(u.has('ext'))out.push({kind:'ext',label:'Extract at fit (immediate)'});
+  if(arches.some(a=>{const b=S.arches[a].bite;return b&&(b.ant||(b.post||[]).length)})){const m=arches.some(a=>bpMetal(a));out.push({kind:'box',col:m?C.metalLt:C.acr,col2:m?C.metal:C.acrLn,label:'Bite plane (BP)'})}
+  if(arches.some(a=>(S.arches[a].collets||[]).length)){const ac=arches.some(a=>(S.arches[a].collets||[]).length&&isAcr(a));out.push({kind:'box',col:ac?C.acr:C.metalLt,col2:ac?C.acrLn:C.metal,label:'Collet (into embrasure)'})}
+  if(arches.some(a=>S.arches[a].defect)){const ob=arches.some(a=>S.arches[a].defect&&isObt(a));out.push({kind:'box',col:ob?C.acr:'#F3D9DB',col2:'#B71C1C',label:ob?'Obturator bulb (defect margin dashed)':'Defect'})}
+  if(u.has('x'))out.push({kind:'x',col:'#1D2430',label:'Fulcrum line mark'});
+  return out}
+function swatchSVG(it){const c=it.col;let g='';
+  switch(it.kind){
+    case 'dot':g=`<ellipse cx="10" cy="7" rx="6" ry="4" fill="${c}"/>`;break;
+    case 'bar':g=`<rect x="8" y="1" width="4" height="12" fill="${c}"/>`;break;
+    case 'quad':g=`<path d="M10 7V0A7 7 0 0 1 17 7Z" fill="${c}"/>`;break;
+    case 'imp':g=`<circle cx="10" cy="7" r="6" fill="#fff" stroke="${c}" stroke-width="1.4"/><circle cx="10" cy="7" r="4" fill="${c}"/>`;break;
+    case 'tele':g=`<rect x="2" y="0.5" width="16" height="13" rx="4" fill="none" stroke="${c}" stroke-width="1.8"/><rect x="6" y="4" width="8" height="6" rx="2" fill="none" stroke="${c}" stroke-dasharray="2 1.5"/>`;break;
+    case 'box':g=`<rect x="1" y="1" width="18" height="12" rx="2" fill="${c}" stroke="${it.col2}"/>`;break;
+    case 'mesh':g=`<rect x="1" y="1" width="18" height="12" fill="${C.mesh}" stroke="${C.metal}"/><path d="M1 9L7 1M6 13L15 1M13 13L19 5" stroke="${C.metal}"/>`;break;
+    case 'ext':g=`<rect x="4" y="2.5" width="12" height="9" rx="3" fill="${C.den}" stroke="${C.denLn}"/><rect x="1.5" y="0.5" width="17" height="13" rx="4" fill="none" stroke="#D32F2F" stroke-dasharray="2 1.4"/>`;break;
+    case 'x':g=`<path d="M6 3L14 11M14 3L6 11" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`;break;
+    case 'arrow':g=`<path d="M2 11Q9 0 15 8" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/><path d="M19 12L12 9L16 4Z" fill="${c}"/>`;break;
+    default:g=`<path d="M2 11Q10 0 18 11" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>`}
+  return `<svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${g}</svg>`}
+function drawSwatch(ctx,it,x,y){const c=it.col;ctx.save();ctx.fillStyle=c;ctx.strokeStyle=c;ctx.lineCap='round';
+  switch(it.kind){
+    case 'dot':ctx.beginPath();ctx.ellipse(x+10,y,6,4,0,0,7);ctx.fill();break;
+    case 'bar':ctx.fillRect(x+8,y-7,4,14);break;
+    case 'quad':ctx.beginPath();ctx.moveTo(x+10,y);ctx.arc(x+10,y,7,-Math.PI/2,0);ctx.closePath();ctx.fill();break;
+    case 'imp':ctx.beginPath();ctx.arc(x+10,y,8,0,7);ctx.fillStyle='#FFFFFF';ctx.fill();ctx.lineWidth=1.6;ctx.stroke();ctx.beginPath();ctx.arc(x+10,y,5.6,0,7);ctx.fillStyle=c;ctx.fill();
+      ctx.fillStyle='#FFFFFF';ctx.font='700 8px Arial, sans-serif';ctx.textAlign='center';ctx.fillText(it.key==='loc'?'L':'N',x+10,y+3);break;
+    case 'tele':ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x+1,y-8,18,16,5);ctx.stroke();ctx.lineWidth=1.2;ctx.setLineDash([3,2]);ctx.beginPath();ctx.roundRect(x+5,y-4,10,8,3);ctx.stroke();break;
+    case 'box':ctx.fillStyle=c;ctx.strokeStyle=it.col2;ctx.lineWidth=1;ctx.fillRect(x,y-6,20,12);ctx.strokeRect(x,y-6,20,12);break;
+    case 'mesh':ctx.fillStyle=C.mesh;ctx.fillRect(x,y-6,20,12);ctx.beginPath();ctx.rect(x,y-6,20,12);ctx.clip();ctx.strokeStyle=C.metal;ctx.lineWidth=1;for(let i=-12;i<24;i+=4){ctx.beginPath();ctx.moveTo(x+i,y+6);ctx.lineTo(x+i+12,y-6);ctx.stroke()}break;
+    case 'ext':ctx.fillStyle=C.den;ctx.strokeStyle=C.denLn;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(x+4,y-5,12,10,3);ctx.fill();ctx.stroke();ctx.strokeStyle='#D32F2F';ctx.setLineDash([3,2]);ctx.beginPath();ctx.roundRect(x,y-8,20,16,5);ctx.stroke();break;
+    case 'x':ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+5,y-5);ctx.lineTo(x+15,y+5);ctx.moveTo(x+15,y-5);ctx.lineTo(x+5,y+5);ctx.stroke();break;
+    default:ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+2,y+3);ctx.quadraticCurveTo(x+10,y-7,x+17,y+2);ctx.stroke();
+      if(it.kind==='arrow'){ctx.beginPath();ctx.moveTo(x+21,y+6);ctx.lineTo(x+13,y+4);ctx.lineTo(x+18,y-2);ctx.closePath();ctx.fill()}}
+  ctx.restore()}
+
+// ---------- Summary ----------
+function connName(a){const r=S.arches[a],c=r.conn,f=connList(a).find(x=>x[0]===c),n=f?f[1]:'None';if(r.shape)return r.shape.length?(c==='none'?'Custom framework outline':n+' (custom outline)'):'None';return n}
+function summary(a){
+  const T=S.arches[a].teeth,lines=[],ken=(isObt(a)&&aramany(a))||kennedy(a);
+  const nm=K=>tname(a,K);
+  const {seq,out}=runs(a,isRep);
+  if(isObt(a)){const o=obt(a),dt=S.arches[a].defect?defectTeeth(a):[];
+    if(S.arches[a].defect)lines.push(['Defect',(dt.length?`teeth within the defect: ${dt.map(nm).join(', ')}`:'palatal only, no teeth involved')]);
+    if(o.bv||o.bh)lines.push(['Brown class',`${o.bv||'?'}${o.bh||''}`]);
+    lines.push(['Bulb',{hollow:'hollow, closed',open:'open-top',solid:'solid'}[o.bulb]+(o.height.trim()?`, ${o.height.trim().replace(/\s*mm$/,'')} mm into the defect`:'')+(o.liner==='yes'?', soft liner on the bulb':'')])}
+  const spc=Object.entries(S.arches[a].space||{}).filter(e=>+e[1]>0).sort((x,y)=>KEYS.indexOf(x[0].split('|')[0])-KEYS.indexOf(y[0].split('|')[0]));
+  const spLine=spc.length?['Spacing',spc.map(([k,v])=>{let [A1,B1]=k.split('|');if(A1[0]===B1[0]&&+A1[1]>+B1[1])[A1,B1]=[B1,A1];return `${v} mm ${A1[0]!==B1[0]?'midline diastema ('+nm(A1)+'/'+nm(B1)+')':'between '+nm(A1)+' and '+nm(B1)}`}).join('; ')+(isAcr(a)?'':spSplit(a)?'. Framework split at the gaps: kept out of the spaces so no metal shows through':'. Framework continuous across the gaps')]:null;
+  lines.push(['Denture',typeName(a)+(atype(a)==='immediate'?(S.arches[a].flange==='socketed'?' (socketed anteriors, no labial flange)':' (flanged)'):'')]);
+  const ex=KEYS.filter(K=>T[K].st==='e');if(ex.length)lines.push(['Extract at fit',ex.map(nm).join(', ')+' (lab to remove from the cast and replace in the denture)']);
+  if(out.length){lines.push([S.arches[a].sshape?'Saddles (custom extension)':'Saddles',out.map(r=>{const ks=r.keys,fe=r.i0===0||r.i1===seq.length-1;return (ks.length>1?nm(ks[0])+'–'+nm(ks[ks.length-1]):nm(ks[0]))+(fe?' (free end)':' (bounded)')}).join('; ')])}
+  if(!isAcr(a)&&out.length){const r=S.arches[a],tub=a==='upper'?'tuberosity':'retromolar pad',fe=out.some(q=>q.keys.includes(lastKey(a,'R'))||q.keys.includes(lastKey(a,'L')));
+    if(r.mshape)lines.push(['Mesh','custom extension (see drawing)']);else if(fe&&r.meshExt==='short')lines.push(['Mesh',`stops short of the ${tub}; acrylic only beyond`]);else if(fe&&r.meshExt==='tooth')lines.push(['Mesh',`ends at the distal of the last denture tooth; not extended over the ${tub}`])}
+  const nr=KEYS.filter(K=>T[K].st==='n'&&+K[1]!==8);if(nr.length)lines.push(['Not replaced',nr.map(nm).join(', ')]);
+  const im=KEYS.filter(K=>T[K].imp&&T[K].st!=='p');
+  if(im.length){const by=k=>im.filter(K=>T[K].imp===k).map(nm);const parts=Object.keys(IMP).filter(k=>by(k).length).map(k=>IMP[k][0]+(by(k).length>1?' abutments ':' abutment ')+by(k).join(', '));
+    lines.push(['Implants',parts.join('; ')+' (implant-retained overdenture; housings to be picked up in the denture base)'])}
+  const tl=KEYS.filter(K=>T[K].tele&&T[K].st==='p');
+  if(tl.length){const by=k=>tl.filter(K=>T[K].tele===k).map(nm);lines.push(['Telescopic crowns',Object.keys(TELE).filter(k=>by(k).length).map(k=>TELE[k][1]+' on '+by(k).join(', ')).join('; ')+' (primary copings cemented; secondary crowns incorporated in the framework)'])}
+  if(spLine)lines.push(spLine);
+  {const b=bite(a),mt=bpMetal(a)?'metal':'acrylic',pp=(b.post||[]).filter(K=>T[K]&&T[K].st!=='n').sort((x,y)=>KEYS.indexOf(x)-KEYS.indexOf(y)),bl=[];
+   if(b.ant)bl.push(`${b.ant==='inclined'?'inclined':'flat'} anterior bite plane (${mt}) ${a==='upper'?'palatal':'lingual'} to the ${nm('R3')}–${nm('L3')} region`);
+   if(pp.length)bl.push(`posterior occlusal coverage (${mt}) on ${pp.map(nm).join(', ')}`);
+   if(bl.length)lines.push(['Bite plane',bl.join('; ')])}
+  lines.push([isAcr(a)?'Base':'Connector',connName(a)]);
+  const cl=(S.arches[a].collets||[]).slice().sort((x,y)=>KEYS.indexOf(x.split('|')[0])-KEYS.indexOf(y.split('|')[0]));
+  if(cl.length)lines.push(['Collets',`${a==='upper'?'palatal':'lingual'} collets (${isAcr(a)?'acrylic':'metal'}) into the ${cl.map(k=>k.split('|').map(nm).join('/')).join(', ')} embrasure${cl.length>1?'s':''}`]);
+  const kr=kbRuns(a);if(kr.length)lines.push(['Kennedy bar',kr.map(r=>r.length>1?nm(r[0])+'–'+nm(r[r.length-1]):nm(r[0])).join('; ')+' (resting on cingula)']);
+  const lingual=a==='upper'?'palatal':'lingual';
+  KEYS.forEach(K=>{const t=T[K];if(t.st!=='p')return;const p=[];
+    if(t.rpi)p.push(`RPI system for the ${t.rpi==='d'?'distal':'mesial'} saddle: ${t.rpi==='d'?'distal':'mesial'} proximal plate`);
+    if(t.crown){const c=t.crown;p.push(c.type==='milled'?`milled (surveyed) crown${(c.feats||[]).length?' with '+c.feats.map(f=>CFEAT[f]).join(', '):''}`:`precision attachment crown, ${c.att==='intra'?'intracoronal':'extracoronal'} attachment ${c.o==='m'?'mesial':'distal'}`)}
+    if(t.rring)p.push('ring rest encircling the tooth');
+    if(t.rest.m)p.push('mesial occlusal rest');if(t.rest.d)p.push('distal occlusal rest');if(t.rest.c)p.push('cingulum rest');
+    if(t.clasp)p.push(claspText(t.clasp));
+    if(t.recip)p.push(`${lingual} reciprocal arm from ${t.recip.o==='m'?'mesial':'distal'}`);
+    const ov=t.ov||{},oq=['mb','db','ml','dl'].filter(q=>ov[q]);
+    if(oq.length===4)p.push('full occlusal overlay');else if(oq.length)p.push('metal overlay: '+oq.map(q=>({mb:'mesiobuccal',db:'distobuccal',ml:'mesio'+lingual,dl:'disto'+lingual})[q]).join(', ')+' quadrant'+(oq.length>1?'s':''));
+    if(t.guide.m)p.push('mesial guide plane');if(t.guide.d)p.push('distal guide plane');
+    if(p.length){const s=p.join('; ');lines.push([nm(K),s.charAt(0).toUpperCase()+s.slice(1)])}});
+  if(isPeek(a))lines.forEach(l=>{if(typeof l[1]==='string')l[1]=l[1].replace(/\bcast\b/g,'milled PEEK').replace(/\bCast\b/g,'Milled PEEK').replace(/\bmetal\b/g,'PEEK')});
+  return {ken,lines};
+}
+function archUsed(a){const r=S.arches[a];return r.ann.length>0||!!(r.collets&&r.collets.length)||!!r.mshape||!!(r.bite&&(r.bite.ant||(r.bite.post||[]).length))||!!(r.space&&Object.keys(r.space).length)||!!r.shape||!!r.sshape||!!r.defect||KEYS.some(K=>{const t=r.teeth[K];return (t.st!=='p'&&+K[1]!==8)||r.type&&r.type!=='cocr'||t.rest.m||t.rest.d||t.rest.c||t.rring||t.crown||t.clasp||t.recip||t.guide.m||t.guide.d||t.kb||t.imp||t.tele||(t.ov&&Object.values(t.ov).some(Boolean))})}
+function textSummary(){
+  const f=S.fields,out=[cardTitle(['upper','lower'].filter(a=>archUsed(a)||a===S.arch))+(f.date?' ('+fmtDate(f.date)+')':'')];
+  ['upper','lower'].filter(a=>archUsed(a)||a===S.arch).forEach(a=>{const s=summary(a);
+    out.push('',(a==='upper'?'Upper':'Lower')+' — '+s.ken.text);s.lines.forEach(l=>out.push(l[0]+': '+l[1]))});
+  const t=[f.shade&&'shade '+f.shade,f.mould&&'mould '+f.mould].filter(Boolean).join(', ');
+  if(t)out.push('','Teeth: '+t);if(f.stage)out.push('Stage: '+f.stage);if(f.notes)out.push('Lab instructions: '+f.notes);
+  return out.join('\n');
+}
+function fmtDate(d){const p=d.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+const svg=$('arch');
+const ICON={teeth:'<path d="M6 4c2-1 4 0 6 0s4-1 6 0c2 2 1 6 0 8-1 3-1 8-3 8-1.5 0-1.5-5-3-5s-1.5 5-3 5c-2 0-2-5-3-8-1-2-2-6 0-8z"/>',
+ rest:'<rect x="5" y="5" width="14" height="14" rx="4"/><ellipse cx="15" cy="12" rx="2.6" ry="3.4" fill="currentColor"/>',
+ clasp:'<rect x="7" y="7" width="10" height="10" rx="3"/><path d="M17 9c3 1 3 6 0 7M17 9c-1-4-9-5-11 0" stroke-width="2.4"/>',
+ recip:'<rect x="7" y="7" width="10" height="10" rx="3"/><path d="M7 15c-3-1-3-6 0-7" stroke-width="2.4"/>',
+ guide:'<rect x="5" y="7" width="10" height="10" rx="3"/><path d="M17 6v12" stroke-width="2.6"/>',
+ overlay:'<rect x="5" y="5" width="14" height="14" rx="4"/><path d="M12 5v14M5 12h14"/><path d="M12 5h3a4 4 0 0 1 4 4v3h-7z" fill="currentColor"/>',
+ kb:'<path d="M3 15c3-5 15-5 18 0" stroke-width="3"/><circle cx="6" cy="9" r="2"/><circle cx="12" cy="7.5" r="2"/><circle cx="18" cy="9" r="2"/>',
+ implant:'<path d="M8 4h8v4H8z" fill="currentColor"/><path d="M9 8h6l-1 12h-4z"/><path d="M9 11h6M9.3 14h5.4M9.6 17h4.8"/>',
+ tele:'<path d="M6 20V9a6 5 0 0 1 12 0v11"/><path d="M9 20v-9a3 2.5 0 0 1 6 0v9" stroke-dasharray="2 1.5"/>',
+ shape:'<path d="M5 8c3-4 11-4 14 0l-2 9H7z"/><circle cx="5" cy="8" r="1.8" fill="currentColor"/><circle cx="19" cy="8" r="1.8" fill="currentColor"/><circle cx="17" cy="17" r="1.8" fill="currentColor"/><circle cx="7" cy="17" r="1.8" fill="currentColor"/>',
+ crown:'<path d="M5 10c0-4 3-6 7-6s7 2 7 6v2H5z"/><path d="M7 12l1 8h8l1-8"/><path d="M9 8h6"/>',
+ bite:'<path d="M4 14h16"/><path d="M6 14V9c0-2 2-3 6-3s6 1 6 3v5"/><path d="M8 17l2-3M12 17l2-3M16 17l2-3"/>',
+ space:'<rect x="3" y="7" width="6" height="10" rx="2.5"/><rect x="15" y="7" width="6" height="10" rx="2.5"/><path d="M10.5 12h3M11.5 10.5L10 12l1.5 1.5M12.5 10.5L14 12l-1.5 1.5"/>',
+ collet:'<circle cx="7" cy="9" r="4"/><circle cx="17" cy="9" r="4"/><path d="M12 10l-3 8h6z" fill="currentColor"/>',
+ defect:'<path d="M6 8c2-3 10-3 12 0 2 4-1 10-6 10S4 12 6 8z" stroke-dasharray="2.4 1.6"/><path d="M9 11l6 4M9 15l6-4"/>',
+ xmark:'<path d="M7 7l10 10M17 7L7 17"/>',
+ pen:'<path d="M4 20l4-1 11-11-3-3L5 16z"/>',text:'<path d="M5 6h14M12 6v13"/>',erase:'<path d="M4 16l8-8 6 6-5 5H8z"/><path d="M4 20h16"/>'};
+const TOOLS0=[['teeth','Teeth'],['rest','Rest'],['clasp','Clasp'],['recip','Recip. arm'],['guide','Guide plane'],['overlay','Overlay'],['kb','Kennedy bar'],['implant','Implant'],['tele','Telescopic'],['crown','Crown'],['collet','Collet'],['space','Spacing'],['bite','Bite plane'],['defect','Defect'],['shape','Outline'],['xmark','× mark'],['pen','Pen'],['text','Label'],['erase','Erase']];
+const HINT={teeth:'Tap a tooth to cycle: standing → replaced on saddle → missing, not replaced. On an immediate denture the first tap marks it for extraction at fit.',
+ rest:'Tap the mesial or distal half of a posterior tooth to add or remove an occlusal rest. Anterior teeth take a cingulum rest.',
+ clasp:'Pick cast or wrought, then the design. Tap the half of the tooth the arm starts from (the rest side). For an I-bar or T-bar, tap the side it approaches from.',
+ recip:'Tap the half of the tooth the reciprocal arm starts from.',
+ guide:'Tap the mesial or distal half to mark a guide plane on that proximal surface.',
+ overlay:'Tap a quarter of a tooth (mesiobuccal, distobuccal, mesiolingual, distolingual) to add or remove metal overlay. Tap all four for full occlusal coverage.',
+ kb:'Tap each tooth the Kennedy bar should rest on. Neighbouring teeth join into one continuous bar, linked to the major connector at each end.',
+ implant:'Pick Locator or Novaloc, then tap a missing or replaced tooth position to place an implant abutment. Tap again to remove it, or tap with the other type selected to switch.',
+ tele:'Pick conical or parallel-walled, then tap a standing tooth to add a telescopic crown. Tap again to remove it, or tap with the other type selected to switch.',
+ shape:'Drag a solid handle to reshape the framework. Drag a dashed handle to add a point there. Tap a handle to select it. A shape placed inside another cuts a hole, for example a relief area.',
+ crown:'Milled crown: pick the milled features, then tap a standing tooth. Precision attachment: pick extracoronal or intracoronal, then tap the side the attachment sits on (usually next to the saddle). Tap again to remove.',
+ bite:'Anterior bite plane: pick flat or inclined, then tap any front tooth to add or remove it (spans canine to canine). Posterior coverage: tap each tooth to cover its occlusal surface. Material can be acrylic or, on a chrome denture, metal.',
+ space:'Pick a gap size, then tap the mesial or distal half of a tooth to open a space between it and its neighbour (tap between 11 and 21 for a midline diastema). Teeth move apart so rests, clasps, plates and collets can sit in the gap. Tap again with the same size to close it. Framework: Split keeps plates, lingual plates and Kennedy bars out of the gaps so no metal shows through.',
+collet:'Tap the mesial or distal half of a tooth to add a collet into that palatal or lingual embrasure. Tap again to remove it.',
+ defect:'Pick the defect pattern and side. Teeth inside it are marked as replaced. Then use Edit outline to match the actual resection.',
+ xmark:'Tap to place an × mark, for example beside the abutments that define the fulcrum line. Use Erase to remove one.',
+ pen:'Draw freehand on the card, e.g. survey lines or relief areas.',
+ text:'Type a label below, then tap where it should go.',erase:'Tap a drawing or label to remove it. Tap a tooth to clear its components.'};
+const TOOLS=TOOLS0;
+$('tools').innerHTML=TOOLS.map(([k,l])=>`<button type="button" data-tool="${k}" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>${l}</button>`).join('');
+$('tools').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(!b)return;tool=b.dataset.tool;renderTools()});
+let labelText='';
+function renderTools(){
+  document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===tool));
+  const so=$('subopts');
+  if(tool==='crown')so.innerHTML=[['milled','Milled crown'],['precision','Precision attachment crown']].map(([k,l])=>`<button type="button" class="chip" data-crt="${k}" aria-pressed="${crownType===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+
+    (crownType==='milled'?`<span class="lbl" style="align-self:center;min-width:5.5em">Features</span>`+Object.entries(CFEAT).map(([k,l])=>`<button type="button" class="chip" data-cft="${k}" aria-pressed="${crownFeats.includes(k)}">${l.charAt(0).toUpperCase()+l.slice(1)}</button>`).join('')
+     :`<span class="lbl" style="align-self:center;min-width:5.5em">Attachment</span>`+[['extra','Extracoronal'],['intra','Intracoronal']].map(([k,l])=>`<button type="button" class="chip" data-att="${k}" aria-pressed="${attType===k}">${l}</button>`).join(''));
+  else if(tool==='bite'){so.innerHTML=[['flat','Anterior (flat)'],['inclined','Anterior (inclined)'],['post','Posterior coverage']].map(([k,l])=>`<button type="button" class="chip" data-bt="${k}" aria-pressed="${biteType===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Material</span>`+[['acrylic','Acrylic'],['metal',isPeek(S.arch)?'PEEK':'Metal']].filter(([k])=>k==='acrylic'||!isAcr(S.arch)).map(([k,l])=>`<button type="button" class="chip" data-bmat="${k}" aria-pressed="${(bite(S.arch).mat||'acrylic')===k}">${l}</button>`).join('')}
+  else if(tool==='space'){const n=Object.keys(A().space||{}).length;so.innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Gap size</span>`+[1,2,3,4,5,6,8].map(v=>`<button type="button" class="chip" data-gap="${v}" aria-pressed="${gapMM===v}">${v} mm</button>`).join('')+(n?`<button type="button" class="chip" data-gapclr="1">Close all gaps (${n})</button>`:'')+`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Framework</span>`+[[true,'Split at gaps'],[false,'Continuous across gaps']].map(([v,l])=>`<button type="button" class="chip" data-gsplit="${v}" aria-pressed="${spSplit(S.arch)===v}">${l}</button>`).join('')}
+  else if(tool==='defect')so.innerHTML=S.arch!=='upper'?'<span class="lbl" style="align-self:center">Defects and obturators are drawn on the upper arch.</span>':
+    `<span class="lbl" style="align-self:center;min-width:5.5em">Side</span>`+[['R','Right'],['L','Left']].map(([k,l])=>`<button type="button" class="chip" data-dside="${k}" aria-pressed="${dSide===k}">${l}</button>`).join('')+
+    `<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Pattern</span>`+DPRE.map(([k,l])=>`<button type="button" class="chip" data-dpre="${k}">${l}</button>`).join('')+
+    `<span style="flex-basis:100%;height:0"></span><button type="button" class="chip" data-dedit>Edit outline</button><button type="button" class="chip" data-dclear>Remove defect</button>`;
+  else if(tool==='rest')so.innerHTML=[['occ','Occlusal / cingulum'],['ring','Ring rest']].map(([k,l])=>`<button type="button" class="chip" data-rm="${k}" aria-pressed="${restMode===k}">${l}</button>`).join('');
+  else if(tool==='shape')so.innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Edit</span>`+[['conn',isAcr(S.arch)?'Acrylic base':'Major connector'],['saddle','Saddles'],...(isAcr(S.arch)?[]:[['mesh','Mesh']]),...(S.arch==='upper'?[['defect','Defect']]:[])].map(([k,l])=>`<button type="button" class="chip" data-olt="${k}" aria-pressed="${olTarget===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+[['add','Add shape'],['delpt','Delete point'],['delsh','Delete shape'],['reset',olTarget==='saddle'||olTarget==='mesh'?'Reset to automatic':olTarget==='defect'?'Remove defect':'Reset to preset']].map(([k,l])=>`<button type="button" class="chip" data-sh="${k}">${l}</button>`).join('');
+  else if(tool==='tele')so.innerHTML=Object.entries(TELE).map(([k,v])=>`<button type="button" class="chip" data-tt="${k}" aria-pressed="${k===teleType}">${v[0]}</button>`).join('');
+  else if(tool==='implant')so.innerHTML=Object.entries(IMP).map(([k,v])=>`<button type="button" class="chip" data-it="${k}" aria-pressed="${k===impType}"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CC[k]};margin-right:6px"></span>${v[0]}</button>`).join('');
+  else if(tool==='clasp'){const ds=claspMat==='cast'?CASTD:WROD;if(claspType!=='rpi'&&!ds.some(d=>d[0]===claspType))claspType='circ';if(claspMat!=='cast'&&claspType==='rpi')claspType='circ';
+    so.innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Material</span>`+Object.entries(MATS).map(([k,v])=>`<button type="button" class="chip" data-cm="${k}" aria-pressed="${k===claspMat}">${k==='cast'&&isPeek(S.arch)?'PEEK (milled)':v[0]}</button>`).join('')+
+    `<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Design</span>`+ds.map(([k,l])=>`<button type="button" class="chip" data-ct="${k}" aria-pressed="${k===claspType}">${l}</button>`).join('')+
+    (claspMat==='cast'?`<button type="button" class="chip" data-ct="rpi" aria-pressed="${claspType==='rpi'}">RPI system</button>`:'')+
+    (claspType==='cc'?`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">C clasp tip</span>`+[['fwd','Forward (mesial)'],['back','Backward (distal)']].map(([k,l])=>`<button type="button" class="chip" data-cd="${k}" aria-pressed="${k===cDir}">${l}</button>`).join(''):'')}
+  else if(tool==='pen'||tool==='text'){
+    so.innerHTML=(tool==='text'?`<input type="text" id="labelIn" placeholder="Label text, e.g. Relieve torus" style="flex:1 1 12em" value="${labelText.replace(/"/g,'&quot;')}">`:'')+
+    [['#C62828','Red'],['#1C5FB8','Blue'],['#1D2430','Black']].map(([c,n])=>`<button type="button" class="chip" data-pc="${c}" aria-pressed="${c===penColor}"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:6px"></span>${n}</button>`).join('');
+    const li=$('labelIn');if(li)li.addEventListener('input',()=>labelText=li.value);
+  } else so.innerHTML='';
+  so.hidden=!so.innerHTML;
+  setHint(HINT[tool]);svg.classList.toggle('drawing',tool==='pen'||tool==='shape');render();
+}
+$('subopts').addEventListener('click',e=>{const cm=e.target.closest('[data-cm]');if(cm){claspMat=cm.dataset.cm;renderTools()}
+  const c=e.target.closest('[data-ct]');if(c){claspType=c.dataset.ct;renderTools()}
+  const crt=e.target.closest('[data-crt]');if(crt){crownType=crt.dataset.crt;renderTools();return}
+  const cft=e.target.closest('[data-cft]');if(cft){const k=cft.dataset.cft,i=crownFeats.indexOf(k);i<0?crownFeats.push(k):crownFeats.splice(i,1);renderTools();return}
+  const bt=e.target.closest('[data-bt]');if(bt){biteType=bt.dataset.bt;renderTools();return}
+  const bmt=e.target.closest('[data-bmat]');if(bmt){const v=bmt.dataset.bmat;commit(()=>{const b=A().bite||(A().bite={});b.mat=v});renderTools();return}
+  const gp=e.target.closest('[data-gap]');if(gp){gapMM=+gp.dataset.gap;renderTools();return}
+  const gs=e.target.closest('[data-gsplit]');if(gs){const v=gs.dataset.gsplit==='true';commit(()=>{A().gapSplit=v});setHint(v?'Plates, lingual plates and Kennedy bars are cut back so no metal shows through the gaps.':'Framework runs continuously across the gaps.');renderTools();return}
+  if(e.target.closest('[data-gapclr]')){commit(()=>{A().space={}});setHint('All gaps closed.');renderTools();return}
+  const att=e.target.closest('[data-att]');if(att){attType=att.dataset.att;renderTools();return}
+  const dsd=e.target.closest('[data-dside]');if(dsd){dSide=dsd.dataset.dside;renderTools();return}
+  const dp=e.target.closest('[data-dpre]');if(dp){const a=S.arch,k=dp.dataset.dpre;
+    commit(()=>{const r=A();r.defect=defectPreset(a,k,dSide);if(!isObt(a)){r.type='obturator';if(!connList(a).some(x=>x[0]===r.conn))r.conn='plate'}
+      defectTeeth(a).forEach(K=>{if(r.teeth[K].st==='p'||r.teeth[K].st==='e'){const im=r.teeth[K].imp;Object.assign(r.teeth[K],blankTooth(+K[1]),{st:'r',imp:im})}})});
+    const ar=aramany(a);setHint(`${DPRE.find(x=>x[0]===k)[1]} defect drawn${ar?` (${ar.text})`:''}. Teeth inside it are marked as replaced. Use Edit outline to match the resection.`);return}
+  if(e.target.closest('[data-dedit]')){tool='shape';olTarget='defect';renderTools();setHint('Drag the handles to match the defect margin. A dashed handle adds a point.');return}
+  if(e.target.closest('[data-dclear]')){commit(()=>A().defect=null);setHint('Defect removed.');return}
+  const rm=e.target.closest('[data-rm]');if(rm){restMode=rm.dataset.rm;renderTools();if(restMode==='ring')setHint('Ring rest: tap a tooth to place or remove a metal ring around it. Add mesial or distal occlusal rests separately with Occlusal / cingulum.');return}
+  const ot=e.target.closest('[data-olt]');if(ot){olTarget=ot.dataset.olt;selV=null;renderTools();setHint(olTarget==='saddle'?'Drag the handles to change the saddle extensions, e.g. into the tuberosity or along the buccal flange. Reset to automatic makes the saddles follow the replaced teeth again.':HINT.shape);return}
+  const sh=e.target.closest('[data-sh]');if(sh){const k=sh.dataset.sh,a=S.arch;
+    if(k==='reset'){selV=null;const K2=olKey();commit(()=>A()[K2]=null);setHint(K2==='defect'?'Defect removed.':K2==='sshape'?'Saddles reset to follow the replaced teeth automatically.':K2==='mshape'?'Mesh reset to the automatic extension.':'Framework outline reset to the '+connName(a).toLowerCase()+' preset.')}
+    else if(k==='add'){const up=a==='upper',c=Q(a,0,hb(a,0)+(up?16:9)),r=olTarget==='defect'?6:4;commit(()=>{const ps=JSON.parse(JSON.stringify(editPolys(a)));ps.push([[f2(c[0]-r),f2(c[1])],[f2(c[0]),f2(c[1]-r)],[f2(c[0]+r),f2(c[1])],[f2(c[0]),f2(c[1]+r)]]);A()[olKey()]=ps});selV=[A()[olKey()].length-1,0];render();setHint('Shape added in the middle of the arch. Drag its handles into place.')}
+    else{const K2=olKey();if(!selV||!A()[K2]){setHint('Tap a handle to select it first.',true);return}
+      if(k==='delpt'){if(A()[K2][selV[0]].length<=3){setHint('A shape needs at least 3 points. Use Delete shape instead.',true);return}commit(()=>A()[K2][selV[0]].splice(selV[1],1));selV=null;setHint('Point deleted.')}
+      else{commit(()=>A()[K2].splice(selV[0],1));selV=null;setHint('Shape deleted.')}}}
+  const tq=e.target.closest('[data-tt]');if(tq){teleType=tq.dataset.tt;renderTools()}
+  const it=e.target.closest('[data-it]');if(it){impType=it.dataset.it;renderTools()}
+  const cd=e.target.closest('[data-cd]');if(cd){cDir=cd.dataset.cd;renderTools();setHint('C clasp tip '+(cDir==='fwd'?'forward (mesially)':'backward (distally)')+'. Tap anywhere on a tooth to place it. Tap an existing C clasp to flip its direction.')}
+  const p=e.target.closest('[data-pc]');if(p){penColor=p.dataset.pc;renderTools()}});
+function setHint(t,warn){const h=$('hint');h.textContent=t;h.classList.toggle('warn',!!warn)}
+
+function render(){
+  const a=S.arch,{vb,inner}=archSVG(a,true);
+  svg.setAttribute('viewBox',vb.join(' '));svg.innerHTML=inner;
+  $('archTitle').textContent=(a==='upper'?'Upper':'Lower')+' arch';
+  $('kennedy').textContent=(isObt(a)&&aramany(a)||kennedy(a)).text;
+  $('exChip').hidden=!S.example;
+  ['aU','aL'].forEach(id=>$(id).setAttribute('aria-pressed',$(id).dataset.arch===a));
+  ['nF','nP'].forEach(id=>$(id).setAttribute('aria-pressed',$(id).dataset.not===S.notation));
+  ['sR','sC'].forEach(id=>$(id).setAttribute('aria-pressed',$(id).dataset.style===(S.style==='col'?'col':'real')));
+  $('legend').innerHTML=legendItems([a]).map(it=>`<span>${swatchSVG(it)}${it.label}</span>`).join('');
+  $('types').innerHTML=Object.entries(TYPES).filter(([k])=>k!=='obturator'||a==='upper'||atype(a)==='obturator').map(([k,l])=>`<button type="button" class="chip" data-type="${k}" aria-pressed="${atype(a)===k}">${l}</button>`).join('');
+  const OB=obt(a),ch=(grp,k,l,on)=>`<button type="button" class="chip" data-ob="${grp}" data-v="${k}" aria-pressed="${on}">${l}</button>`,row=(lab,html)=>`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:6.5em">${lab}</span>${html}`;
+  $('obtp').innerHTML=isObt(a)?row('Stage',[['surgical','Surgical'],['interim','Interim'],['definitive','Definitive']].map(([k,l])=>ch('stage',k,l,OB.stage===k)).join(''))+
+    row('Framework',[['cocr','CoCr + acrylic bulb'],['acrylic','All acrylic']].map(([k,l])=>ch('frame',k,l,OB.frame===k)).join(''))+
+    row('Bulb',[['hollow','Hollow, closed'],['open','Open-top'],['solid','Solid']].map(([k,l])=>ch('bulb',k,l,OB.bulb===k)).join(''))+
+    row('Bulb height',`<input type="text" id="obH" inputmode="decimal" placeholder="mm into defect" value="${OB.height.replace(/"/g,'&quot;')}" style="max-width:9em">`)+
+    row('Soft liner',[['no','No'],['yes','On bulb']].map(([k,l])=>ch('liner',k,l,OB.liner===k)).join(''))+
+    row('Brown vertical',['I','II','III','IV','V','VI'].map(k=>ch('bv',k,k,OB.bv===k)).join(''))+
+    row('Brown horizontal',['a','b','c','d'].map(k=>ch('bh',k,k,OB.bh===k)).join(''))+
+    (S.arches[a].defect?row('Abutments',[['no','Hide suggestions'],['yes','Suggest for Aramany class']].map(([k,l])=>ch('sug',k,l,(OB.sug||'no')===k)).join(''))+((OB.sug==='yes')?(()=>{const sg=abutSuggest(a);return sg&&sg.items.length?`<span style="flex-basis:100%;height:0"></span><div style="font-size:.9rem;line-height:1.45;color:var(--ink)"><b>${sg.design} design (Aramany Class ${sg.cls}):</b> ${sg.items.map(([K,w],i)=>`${i+1}. ${tname(a,K)}, ${w}`).join('; ')}. <span style="color:var(--muted)">A guide only; confirm with surveying and the clinical picture.</span></div>`:'<span style="flex-basis:100%;height:0"></span><span class="lbl">No standing teeth to suggest.</span>'})():''):row('Defect','<button type="button" class="chip" data-gotodefect>Draw the defect…</button>')):'';$('obtp').hidden=!isObt(a);
+  $('flange').innerHTML=atype(a)==='immediate'?`<span class="lbl" style="align-self:center">Immediate teeth</span>`+[['flanged','Flanged'],['socketed','Socketed (no flange)']].map(([k,l])=>`<button type="button" class="chip" data-fl="${k}" aria-pressed="${(A().flange||'flanged')===k}">${l}</button>`).join(''):'';$('flange').hidden=atype(a)!=='immediate';
+  $('connLbl').textContent=isAcr(a)?'Acrylic base':'Major connector';
+  const bm=isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome';
+  $('connectors').innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Baseplate</span>`+[['chrome','Chrome'],['peek','PEEK'],['acrylic','Acrylic']].map(([k,l])=>`<button type="button" class="chip" data-bm="${k}" aria-pressed="${bm===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+connList(a).map(([k,l])=>`<button type="button" class="chip" data-conn="${k}" aria-pressed="${!A().shape&&A().conn===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-conn="custom" aria-pressed="${!!A().shape}">Custom outline…</button>`+(isAcr(a)?'':`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Mesh (free end)</span>`+[['full',a==='upper'?'Over tuberosity':'Onto retromolar pad'],['short',a==='upper'?'Short of tuberosity':'Short of pad'],['tooth','To last denture tooth']].map(([k,l])=>`<button type="button" class="chip" data-mx="${k}" aria-pressed="${!A().mshape&&(A().meshExt||'full')===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-mx="custom" aria-pressed="${!!A().mshape}">Custom…</button>`);
+  const s=summary(a);
+  $('summary').innerHTML=`<li class="gen"><span><b style="color:inherit">${s.ken.text}</b></span></li>`+s.lines.map(l=>/^\d|^[UL][RL]/.test(l[0])?`<li><b>${l[0]}</b><span>${l[1]}</span></li>`:`<li class="gen"><span><b style="color:var(--muted);font-weight:700">${l[0]}:</b> ${l[1]}</span></li>`).join('');
+  $('undo').disabled=!hist.length;$('redo').disabled=!fut.length;
+}
+document.querySelectorAll('[data-arch]').forEach(b=>b.addEventListener('click',()=>{S.arch=b.dataset.arch;render();save()}));
+document.querySelectorAll('[data-style]').forEach(b=>b.addEventListener('click',()=>{S.style=b.dataset.style;render();save()}));
+document.querySelectorAll('[data-not]').forEach(b=>b.addEventListener('click',()=>{S.notation=b.dataset.not;render();save()}));
+$('types').addEventListener('click',e=>{const b=e.target.closest('[data-type]');if(!b)return;const ty=b.dataset.type,a=S.arch;
+  commit(()=>{const r=A();r.type=ty;if(!connList(a).some(x=>x[0]===r.conn)){r.conn=connList(a)[0][0];r.shape=null}
+    if(ty!=='immediate')KEYS.forEach(K=>{if(r.teeth[K].st==='e')r.teeth[K].st='r'})});
+  if(ty!=='cocr'){claspMat='wrought';claspType='circ'}
+  if(ty==='obturator'&&!A().defect)setHint('Obturator selected. Use the Defect tool to draw the resection.');else
+  setHint(ty==='immediate'?'Immediate denture: tap a standing tooth once with the Teeth tool to mark it for extraction at fit.':TYPES[ty]+' denture selected.')});
+$('obtp').addEventListener('click',e=>{if(e.target.closest('[data-gotodefect]')){tool='defect';renderTools();return}
+  const b=e.target.closest('[data-ob]');if(!b)return;const g=b.dataset.ob,v=b.dataset.v;
+  commit(()=>{const o=A().obt||(A().obt={});o[g]=(g==='bv'||g==='bh')&&o[g]===v?'':v});if(g==='frame'&&v==='acrylic'){claspMat='wrought';claspType='circ'}});
+$('obtp').addEventListener('input',e=>{if(e.target.id!=='obH')return;const o=A().obt||(A().obt={});o.height=e.target.value;save();const s=summary(S.arch);
+  $('summary').innerHTML=`<li class="gen"><span><b style="color:inherit">${s.ken.text}</b></span></li>`+s.lines.map(l=>/^\d|^[UL][RL]/.test(l[0])?`<li><b>${l[0]}</b><span>${l[1]}</span></li>`:`<li class="gen"><span><b style="color:var(--muted);font-weight:700">${l[0]}:</b> ${l[1]}</span></li>`).join('')});
+$('flange').addEventListener('click',e=>{const b=e.target.closest('[data-fl]');if(b)commit(()=>A().flange=b.dataset.fl)});
+$('connectors').addEventListener('click',e=>{const mx=e.target.closest('[data-mx]');if(mx){const v=mx.dataset.mx;if(v==='custom'){tool='shape';olTarget='mesh';selV=null;renderTools();setHint('Drag the handles to set how far the mesh extends. A dashed handle adds a point.');return}
+    commit(()=>{A().meshExt=v;A().mshape=null});setHint(v==='full'?'Mesh extends over the full free-end saddle.':v==='short'?'Mesh stops short of the '+(S.arch==='upper'?'tuberosity':'retromolar pad')+'; acrylic alone covers the rest.':'Mesh ends at the distal of the last denture tooth.');return}const bmb=e.target.closest('[data-bm]');if(bmb){const v=bmb.dataset.bm,a=S.arch;if((isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome')===v)return;
+    commit(()=>{const r=A();if(v!=='acrylic')r.fmat=v==='peek'?'peek':null;if(isObt(a)){(r.obt||(r.obt={})).frame=v==='acrylic'?'acrylic':'cocr'}else r.type=v==='acrylic'?(r.type==='immediate'?'immediate':'acrylic'):'cocr';
+      if(!connList(a).some(x=>x[0]===r.conn)){r.conn=connList(a)[0][0];r.shape=null}if(v!=='acrylic')KEYS.forEach(K=>{if(r.teeth[K].st==='e')r.teeth[K].st='r'})});
+    if(v==='acrylic'){claspMat='wrought';claspType='circ'}setHint(v==='acrylic'?'Acrylic baseplate selected.':v==='peek'?'PEEK framework selected: milled, tooth-coloured and metal-free. Cast clasps become milled PEEK clasps.':'Chrome (cobalt-chromium) baseplate selected.');return}
+  const b=e.target.closest('[data-conn]');if(!b)return;if(b.dataset.conn==='custom'){tool='shape';olTarget='conn';renderTools();return}selV=null;commit(()=>{A().conn=b.dataset.conn;A().shape=null})});
+$('undo').onclick=()=>{if(!hist.length)return;fut.push(JSON.stringify(S.arches));S.arches=JSON.parse(hist.pop());migrate(S);render();save()};
+$('redo').onclick=()=>{if(!fut.length)return;hist.push(JSON.stringify(S.arches));S.arches=JSON.parse(fut.pop());render();save()};
+$('clearArch').onclick=()=>commit(()=>S.arches[S.arch]=blankArch(S.arch));
+$('blankBtn').onclick=()=>{commit(()=>{S.arches={upper:blankArch('upper'),lower:blankArch('lower')}});
+  S.fields={patient:'',date:today(),clin:'',stage:'',shade:'',mould:'',notes:''};loadFields();save();toast('Blank card ready')};
+
+// fields
+const FM={patient:'fPatient',date:'fDate',clin:'fClin',stage:'fStage',shade:'fShade',mould:'fMould',notes:'fNotes'};
+function loadFields(){Object.entries(FM).forEach(([k,id])=>$(id).value=S.fields[k]||'')}
+Object.entries(FM).forEach(([k,id])=>$(id).addEventListener('input',()=>{S.fields[k]=$(id).value;save()}));
+
+// pointer
+function toSvg(e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return [q.x,q.y]}
+function hit(pt){const a=S.arch;let best=null;
+  KEYS.forEach(K=>{const x=toothXf(a,K),dx=pt[0]-x.F.P[0],dy=pt[1]-x.F.P[1],u=dx*x.F.D[0]+dy*x.F.D[1],v=dx*x.B[0]+dy*x.B[1];
+    if(Math.abs(u)<=x.t.w+0.8&&Math.abs(v)<=x.t.h+2){const sc=Math.hypot(u/x.t.w,v/x.t.h);if(!best||sc<best.sc)best={K,u,v,sc,k:x.t.k}}});
+  return best}
+let down=null,live=null;
+let rafP=false;function softRender(){if(rafP)return;rafP=true;requestAnimationFrame(()=>{rafP=false;render()})}
+svg.addEventListener('pointerdown',e=>{const pt=toSvg(e);down={x:e.clientX,y:e.clientY,pt,target:e.target};
+  if(tool==='shape'){down=null;const v=e.target.closest&&e.target.closest('[data-v],[data-mid]');
+    if(!v){selV=null;render();return}
+    svg.setPointerCapture(e.pointerId);const before=JSON.stringify(S.arches);
+    const OK=olKey();if(!A()[OK])A()[OK]=JSON.parse(JSON.stringify(editPolys(S.arch)));
+    let pi,vi;
+    if(v.dataset.mid){[pi,vi]=v.dataset.mid.split(',').map(Number);A()[OK][pi].splice(vi+1,0,[f2(pt[0]),f2(pt[1])]);vi++;drag={pi,vi,before,moved:true}}
+    else{[pi,vi]=v.dataset.v.split(',').map(Number);drag={pi,vi,before,moved:false,x:e.clientX,y:e.clientY}}
+    selV=[pi,vi];render();return}
+  if(tool==='pen'){svg.setPointerCapture(e.pointerId);live={p:[pt]};
+    const el=document.createElementNS('http://www.w3.org/2000/svg','path');el.setAttribute('fill','none');el.setAttribute('stroke',penColor);el.setAttribute('stroke-width','0.45');el.setAttribute('stroke-linecap','round');svg.appendChild(el);live.el=el}});
+svg.addEventListener('pointermove',e=>{if(drag){if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<4)return;const pt=toSvg(e);A()[olKey()][drag.pi][drag.vi]=[f2(pt[0]),f2(pt[1])];drag.moved=true;softRender();return}
+  if(!live)return;const pt=toSvg(e),l=live.p[live.p.length-1];
+  if(Math.hypot(pt[0]-l[0],pt[1]-l[1])>0.35){live.p.push(pt);live.el.setAttribute('d','M'+live.p.map(q=>f2(q[0])+' '+f2(q[1])).join('L'))}});
+svg.addEventListener('pointerup',e=>{
+  if(drag){const d=drag;drag=null;if(d.moved){hist.push(d.before);if(hist.length>80)hist.shift();fut.length=0;S.example=false}else if(JSON.stringify(S.arches)!==d.before){S.arches=JSON.parse(d.before)}render();save();return}
+  if(live){const p=live.p;live=null;if(p.length>1)commit(()=>A().ann.push({type:'path',p:p.map(q=>[f2(q[0]),f2(q[1])]),c:penColor}));else render();down=null;return}
+  if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y);const d=down;down=null;if(moved>8)return;tap(d.pt,d.target)});
+svg.addEventListener('pointercancel',()=>{if(drag){S.arches=JSON.parse(drag.before);drag=null}live=null;down=null;render()});
+function tap(pt,target){
+  if(tool==='defect')return;
+  if(tool==='crown'){const h0=hit(pt);if(!h0)return;const t0=A().teeth[h0.K],nm0=tname(S.arch,h0.K),sd=h0.u<0?'m':'d';
+    if(t0.st!=='p'){setHint(nm0+' is not a standing tooth. Mark it as standing first.',true);return}
+    let nw=crownType==='milled'?{type:'milled',feats:crownFeats.slice()}:{type:'precision',att:attType,o:sd};
+    const same=t0.crown&&t0.crown.type===nw.type&&(nw.type==='milled'||(t0.crown.o===nw.o&&t0.crown.att===nw.att));
+    commit(()=>{t0.crown=same?null:nw});
+    setHint(nm0+': '+(same?'crown removed':nw.type==='milled'?'milled crown added':`precision attachment crown added (${nw.att==='intra'?'intracoronal':'extracoronal'}, ${sd==='m'?'mesial':'distal'})`)+'.');return}
+  if(tool==='bite'){const h0=hit(pt);if(!h0)return;const nm0=tname(S.arch,h0.K);
+    if(biteType==='post'){const on=(bite(S.arch).post||[]).includes(h0.K);if(!on&&A().teeth[h0.K].st==='n'){setHint(nm0+' is missing and not replaced.',true);return}
+      commit(()=>{const b=A().bite||(A().bite={}),ps=b.post||(b.post=[]);if(on)ps.splice(ps.indexOf(h0.K),1);else ps.push(h0.K)});setHint(nm0+': occlusal coverage '+(on?'removed':'added')+'.');return}
+    const same=bite(S.arch).ant===biteType;commit(()=>{const b=A().bite||(A().bite={});b.ant=same?null:biteType});setHint(same?'Anterior bite plane removed.':(biteType==='inclined'?'Inclined':'Flat')+' anterior bite plane added.');return}
+  if(tool==='space'){const h0=hit(pt);if(!h0)return;const sd=h0.u<0?'m':'d',nb=nbKey(h0.K,sd);
+    if(!nb){setHint('There is no neighbouring tooth on that side.',true);return}
+    const k=embKey(h0.K,nb),cur=(A().space||{})[k],off=cur===gapMM,nm2=k.split('|').map(x=>tname(S.arch,x)).join('/');
+    commit(()=>{const sp=A().space||(A().space={});if(off)delete sp[k];else sp[k]=gapMM});
+    setHint(`${nm2}: ${off?'gap closed':gapMM+' mm gap'}.`);renderTools();return}
+  if(tool==='collet'){const h0=hit(pt);if(!h0)return;const sd=h0.u<0?'m':'d',nb=nbKey(h0.K,sd),T=A().teeth;
+    if(!nb){setHint('There is no neighbouring tooth on that side.',true);return}
+    if(T[h0.K].st!=='p'&&T[nb].st!=='p'){setHint('A collet needs a standing tooth on at least one side of the embrasure.',true);return}
+    const k=embKey(h0.K,nb),on=(A().collets||[]).includes(k);commit(()=>{const c=A().collets||(A().collets=[]);if(on)c.splice(c.indexOf(k),1);else c.push(k)});
+    setHint(`${tname(S.arch,k.split('|')[0])}/${tname(S.arch,k.split('|')[1])} embrasure: collet ${on?'removed':'added'}.`);return}
+  if(tool==='erase'){const an=target.closest&&target.closest('[data-ann]');if(an){commit(()=>A().ann.splice(+an.dataset.ann,1));return}}
+  if(tool==='xmark'){commit(()=>A().ann.push({type:'x',x:f2(pt[0]),y:f2(pt[1]),c:'#1D2430'}));return}
+  if(tool==='text'){const t=labelText.trim();if(!t){setHint('Type the label text first, then tap the card.',true);return}
+    commit(()=>A().ann.push({type:'text',x:f2(pt[0]),y:f2(pt[1]),text:t,c:penColor}));return}
+  const h=hit(pt);if(!h)return;const tt=A().teeth[h.K],side=h.u<0?'m':'d',nm=tname(S.arch,h.K);
+  if(tool==='teeth'){const cyc=atype(S.arch)==='immediate'?{p:'e',e:'r',r:'n',n:'p'}:{p:'r',r:'n',n:'p',e:'n'};commit(()=>{tt.st=cyc[tt.st];if(tt.st!=='p'){const im=tt.imp;Object.assign(tt,blankTooth(h.k),{st:tt.st,imp:im})}else tt.imp=null});
+    if(A().sshape)setTimeout(()=>setHint('Saddles have a custom outline, so they did not follow this change. Use Outline → Saddles → Reset to automatic to redraw them.',true),1200);
+    setHint(nm+': '+{p:'standing',e:'extract at fit and replace (immediate)',r:'replaced on saddle',n:'missing, not replaced'}[tt.st]+'.');return}
+  if(tool==='implant'){if(tt.st==='p'){setHint(nm+' is a standing tooth. Mark it as replaced or missing with the Teeth tool first.',true);return}
+    commit(()=>{tt.imp=tt.imp===impType?null:impType});setHint(nm+': '+(tt.imp?IMP[tt.imp][0]+' implant abutment added':'implant removed')+'.');return}
+  if(tool==='erase'&&tt.st!=='p'&&tt.imp){commit(()=>tt.imp=null);setHint(nm+': implant removed.');return}
+  if(tt.st!=='p'){setHint(nm+' is not a standing tooth. Use the Teeth tool to mark it as standing first.',true);return}
+  if(tool==='tele'){commit(()=>{tt.tele=tt.tele===teleType?null:teleType});setHint(nm+': '+(tt.tele?TELE[tt.tele][1]+' telescopic crown added':'telescopic crown removed')+'.');return}
+  if(tool==='erase'){commit(()=>Object.assign(tt,blankTooth(h.k),{st:'p'}));setHint(nm+': components cleared.');return}
+  if(tool==='rest'&&restMode==='ring'){commit(()=>{tt.rring=tt.rring?null:true});setHint(nm+': '+(tt.rring?'ring rest added. Switch to Occlusal / cingulum to add mesial or distal rests.':'ring rest removed')+'.');return}
+  if(tool==='rest'){commit(()=>{if(h.k<=3)tt.rest.c=!tt.rest.c;else tt.rest[side]=!tt.rest[side]});
+    setHint(nm+': '+(h.k<=3?'cingulum rest '+(tt.rest.c?'added':'removed'):(side==='m'?'mesial':'distal')+' rest '+(tt.rest[side]?'added':'removed'))+'.');return}
+  if(tool==='clasp'&&claspType==='rpi'){
+    if(tt.rpi){const o=tt.rpi;commit(()=>{tt.rpi=null;tt.rest.m=tt.rest.d=tt.rest.c=false;if(tt.clasp&&tt.clasp.type==='ibar')tt.clasp=null;tt.guide[o]=false});setHint(nm+': RPI system removed.');return}
+    const sd=h.K[0],k=h.k,other=sd==='R'?'L':'R',T=A().teeth;
+    const dist=k<8?T[sd+(k+1)]:null,mes=k>1?T[sd+(k-1)]:T[other+'1'];
+    let o=dist&&dist.st!=='p'?'d':(mes&&mes.st!=='p'?'m':side);
+    commit(()=>{tt.rpi=o;tt.guide[o]=true;tt.clasp={type:'ibar',mat:'cast',o};tt.rest.m=tt.rest.d=tt.rest.c=false;
+      if(k<=3)tt.rest.c=true;else tt.rest[o==='d'?'m':'d']=true});
+    setHint(nm+': RPI system added. '+(k<=3?'Cingulum':(o==='d'?'Mesial':'Distal'))+' rest, '+(o==='d'?'distal':'mesial')+' proximal plate and I-bar, for the '+(o==='d'?'distal':'mesial')+' saddle.');return}
+  if(tool==='clasp'&&claspType==='cc'){const o=cDir==='fwd'?'d':'m';
+    commit(()=>{tt.clasp=tt.clasp&&tt.clasp.type==='cc'&&tt.clasp.mat===claspMat?{type:'cc',mat:claspMat,o:tt.clasp.o==='d'?'m':'d'}:{type:'cc',mat:claspMat,o}});
+    setHint(nm+': '+claspText(tt.clasp)+'. Tap again to flip; use Erase to remove.');return}
+  if(tool==='clasp'){commit(()=>{tt.clasp=tt.clasp&&tt.clasp.type===claspType&&tt.clasp.mat===claspMat&&tt.clasp.o===side?null:{type:claspType,mat:claspMat,o:side}});
+    let extra='';if(tt.clasp&&(claspType==='ibar'||claspType==='tbar')){const nk=nbKey(h.K,side);if(!(nk&&isRep(A().teeth[nk])))extra=' There is no saddle on that side, so it is linked to the framework through the embrasure.'}
+    setHint(nm+': '+(tt.clasp?claspText(tt.clasp):'clasp removed')+'.'+extra);return}
+  if(tool==='recip'){commit(()=>{tt.recip=tt.recip&&tt.recip.o===side?null:{o:side}});setHint(nm+': reciprocal arm '+(tt.recip?'added':'removed')+'.');return}
+  if(tool==='overlay'){const q=(h.u<0?'m':'d')+(h.v>0?'b':'l');const lab={mb:'mesiobuccal',db:'distobuccal',ml:'mesiolingual',dl:'distolingual'}[q];
+    commit(()=>{if(!tt.ov)tt.ov={mb:false,db:false,ml:false,dl:false};tt.ov[q]=!tt.ov[q]});setHint(nm+': '+lab+' overlay '+(tt.ov[q]?'added':'removed')+'.');return}
+  if(tool==='kb'){commit(()=>tt.kb=!tt.kb);setHint(nm+': Kennedy bar '+(tt.kb?'added':'removed')+'.');return}
+  if(tool==='guide'){commit(()=>tt.guide[side]=!tt.guide[side]);setHint(nm+': '+(side==='m'?'mesial':'distal')+' guide plane '+(tt.guide[side]?'added':'removed')+'.');return}
+}
+
+// toast & copy text
+let tt0;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt0);tt0=setTimeout(()=>t.classList.remove('on'),1800)}
+$('copyText').onclick=()=>{const txt=textSummary();
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Design text copied')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Design text copied')}catch(e){toast('Select the summary text to copy it')}ta.remove()})};
+
+// ---------- Card image ----------
+let cardBlob=null;
+function wrap(ctx,text,w){const words=String(text).split(/\s+/),lines=[];let cur='';
+  words.forEach(wd=>{const t=cur?cur+' '+wd:wd;if(ctx.measureText(t).width>w&&cur){lines.push(cur);cur=wd}else cur=t});if(cur)lines.push(cur);return lines}
+async function buildCard(){
+  try{await Promise.all([document.fonts.load('700 28px Caladea'),document.fonts.load('16px Carlito'),document.fonts.load('700 16px Carlito')])}catch(e){}
+  const arches=['upper','lower'].filter(a=>archUsed(a));if(!arches.length)arches.push(S.arch);
+  const W=1100,M=36,SC=2,n=arches.length,dW=n===1?520:(W-2*M-28)/2;
+  const imgs=await Promise.all(arches.map(a=>new Promise((res,rej)=>{const {vb,inner}=archSVG(a,false);const h=dW*vb[3]/vb[2];
+    const str=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(' ')}" width="${dW*SC}" height="${h*SC}">${inner}</svg>`;
+    const sv=isObt(a)?sideSVG(a):'',sh=sv?dW*(+(/data-h="(\d+)"/.exec(sv)||[0,92])[1])/200:0;
+    const im=new Image();im.onload=()=>{if(!sv){res({im,h,ah:h,a});return}const s2=new Image();s2.onload=()=>res({im,h:h+8+sh,ah:h,side:s2,sh,a});s2.onerror=rej;s2.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(sv.replace('<svg ',`<svg width="${dW*SC}" height="${sh*SC}" `))};im.onerror=rej;im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(str)})));
+  const meas=document.createElement('canvas').getContext('2d');
+  const F={h:'700 28px Caladea, Georgia, serif',sub:'16px Carlito, Calibri, Arial, sans-serif',cap:'700 13px Carlito, Calibri, Arial, sans-serif',
+    ah:'700 19px Caladea, Georgia, serif',b:'16px Carlito, Calibri, Arial, sans-serif',bb:'700 16px Carlito, Calibri, Arial, sans-serif'};
+  // build text blocks
+  function archBlock(a,w){const s=summary(a),out=[];out.push({f:F.ah,c:'#0B2E4A',t:(a==='upper'?'Upper':'Lower')+' arch',lh:24});
+    out.push({f:F.bb,c:'#1C7293',t:s.ken.text,lh:22,gap:4});
+    s.lines.forEach(l=>{meas.font=F.b;const head=l[0]+': ';meas.font=F.bb;const hw=meas.measureText(head).width;meas.font=F.b;
+      const lines=wrap(meas,l[1],w-hw);lines.forEach((ln,i)=>out.push({f:F.b,c:'#24323F',t:ln,head:i===0?head:'',ind:hw,lh:21}))});
+    return out}
+  function genBlock(w){const f=S.fields,out=[];const t=[f.shade&&'Shade '+f.shade,f.mould&&'Mould '+f.mould].filter(Boolean).join('  ·  ');
+    out.push({f:F.cap,c:'#5B6B79',t:'TEETH & INSTRUCTIONS',lh:20,gap:8,sp:true});
+    if(t)out.push({f:F.b,c:'#24323F',t,lh:21});if(f.stage){out.push({f:F.b,c:'#24323F',t:'Stage: '+f.stage,lh:21})}
+    if(f.notes){meas.font=F.b;wrap(meas,f.notes,w).forEach(l=>out.push({f:F.b,c:'#24323F',t:l,lh:21}))}
+    if(!t&&!f.stage&&!f.notes)out.push({f:F.b,c:'#8796A4',t:'None given',lh:21});return out}
+  const LI=legendItems(arches);let LR=1;{meas.font='14px Carlito, Calibri, Arial, sans-serif';let lx=M;LI.forEach(it=>{const wd=26+meas.measureText(it.label).width+20;if(lx+wd>W-M){lx=M;LR++}lx+=wd})}
+  const bh=b=>b.reduce((s,x)=>s+x.lh+(x.gap||0),0);
+  const top=M+34+24+16;let H;
+  const capH=22;
+  let layout;
+  if(n===1){const tx=M+dW+32,tw=W-tx-M;const blk=archBlock(arches[0],tw).concat([{lh:10}],genBlock(tw));
+    layout={blocks:[{x:tx,y:top,b:blk}]};H=Math.max(top+capH+imgs[0].h,top+bh(blk))+66+LR*24}
+  else{const rowH=Math.max(imgs[0].h,imgs[1].h)+capH,by=top+rowH+20;const b1=archBlock(arches[0],dW),b2=archBlock(arches[1],dW);
+    const gy=by+Math.max(bh(b1),bh(b2))+14,g=genBlock(W-2*M);layout={blocks:[{x:M,y:by,b:b1},{x:M+dW+28,y:by,b:b2},{x:M,y:gy,b:g}]};H=gy+bh(g)+66+LR*24}
+  const cv=document.createElement('canvas');cv.width=W*SC;cv.height=Math.ceil(H)*SC;const ctx=cv.getContext('2d');ctx.scale(SC,SC);
+  ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#C9D3DC';ctx.lineWidth=1;ctx.strokeRect(0.5,0.5,W-1,H-1);
+  ctx.fillStyle='#0B2E4A';ctx.fillRect(0,0,W,6);
+  const f=S.fields;ctx.textBaseline='alphabetic';
+  ctx.font=F.h;ctx.fillStyle='#0B2E4A';ctx.fillText(cardTitle(arches),M,M+22);
+  ctx.font=F.sub;ctx.fillStyle='#4A5A68';ctx.textAlign='right';ctx.fillText(f.date?fmtDate(f.date):'',W-M,M+22);ctx.textAlign='left';
+  const meta=[f.patient&&'Patient: '+f.patient,f.clin&&'Clinician: '+f.clin,'Notation: '+(S.notation==='fdi'?'FDI':'Palmer')].filter(Boolean).join('    ·    ');
+  ctx.fillText(meta,M,M+50);ctx.fillStyle='#3FA9A0';ctx.fillRect(M,M+62,W-2*M,2);
+  imgs.forEach((o,i)=>{const x=M+i*(dW+28);ctx.font=F.cap;ctx.fillStyle='#5B6B79';
+    const cap=(o.a==='upper'?'UPPER':'LOWER')+' ARCH  ·  OCCLUSAL VIEW  ·  '+connName(o.a).toUpperCase();
+    if(ctx.letterSpacing!==undefined)ctx.letterSpacing='1px';ctx.fillText(cap,x,top+12);if(ctx.letterSpacing!==undefined)ctx.letterSpacing='0px';
+    ctx.drawImage(o.im,x,top+capH,dW,o.ah);ctx.strokeStyle='#E1E7EC';ctx.strokeRect(x+.5,top+capH+.5,dW-1,o.ah-1);
+    if(o.side){ctx.drawImage(o.side,x,top+capH+o.ah+8,dW,o.sh);ctx.strokeRect(x+.5,top+capH+o.ah+8.5,dW-1,o.sh-1)}});
+  layout.blocks.forEach(B=>{let y=B.y;B.b.forEach(it=>{y+=(it.gap||0);if(!it.t){y+=it.lh;return}y+=it.lh;
+    if(it.sp&&ctx.letterSpacing!==undefined)ctx.letterSpacing='1px';
+    if(it.head){ctx.font=F.bb;ctx.fillStyle='#0B2E4A';ctx.fillText(it.head,B.x,y-5)}
+    ctx.font=it.f;ctx.fillStyle=it.c;ctx.fillText(it.t,B.x+(it.ind||0),y-5);if(ctx.letterSpacing!==undefined)ctx.letterSpacing='0px'})});
+  // legend
+  let ly=H-46-(LR-1)*24,lx=M;ctx.font='14px Carlito, Calibri, Arial, sans-serif';
+  LI.forEach(it=>{const wd=26+ctx.measureText(it.label).width+20;if(lx+wd>W-M){lx=M;ly+=24}drawSwatch(ctx,it,lx,ly);ctx.fillStyle='#4A5A68';ctx.font='14px Carlito, Calibri, Arial, sans-serif';ctx.fillText(it.label,lx+26,ly+5);lx+=wd});
+  ctx.font='13px Carlito, Calibri, Arial, sans-serif';ctx.fillStyle='#8796A4';ctx.fillText("Patient's right shown on the left. "+(LI.some(i=>i.kind==='tele')?'Telescopic: K = conical (Konus), P = parallel-walled. ':'')+(LI.some(i=>i.kind==='x')?'× marks the fulcrum line. ':'')+"Undercut depths are standard defaults; confirm on survey.",M,H-14);
+  return cv;
+}
+$('make').onclick=async()=>{const b=$('make');b.disabled=true;b.textContent='Creating…';
+  try{const cv=await buildCard();const url=cv.toDataURL('image/png');$('preview').src=url;$('preview').hidden=false;
+    cardBlob=await new Promise(r=>cv.toBlob(r,'image/png'));$('copyImg').disabled=false;toast('Card image ready')}
+  catch(e){toast('Could not create the image. Try again.')}
+  b.disabled=false;b.textContent='Create card image'};
+$('copyImg').onclick=()=>{if(!cardBlob)return;
+  try{navigator.clipboard.write([new ClipboardItem({'image/png':cardBlob})]).then(()=>toast('Image copied. Paste it into the notes.')).catch(()=>toast('Copy blocked here. Long-press or right-click the image instead.'))}
+  catch(e){toast('Copy blocked here. Long-press or right-click the image instead.')}};
+
+
+loadFields();renderTools();render();
+if(EMBED){document.documentElement.classList.add('embed');
+  addEventListener('message',e=>{if(e.source!==window.parent)return;const d=e.data||{};if(d.type!=='cc-load')return;
+    S=d.state&&d.state.arches?JSON.parse(JSON.stringify(d.state)):blankDesign();S.example=false;if(!S.style)S.style='real';if(!d.state&&d.notation)S.notation=d.notation;
+    if(!S.fields)S.fields={};if(!S.fields.clin&&d.clin)S.fields.clin=d.clin;if(!S.fields.stage&&d.stage)S.fields.stage=d.stage;
+    if(!d.state&&d.dtype==='obturator'){S.arch='upper';S.arches.upper.type='obturator'}
+    migrate(S);hist.length=0;fut.length=0;selV=null;loadFields();renderTools();render();
+    const pv=$('preview');pv.hidden=true;pv.removeAttribute('src');cardBlob=null;$('copyImg').disabled=true});
+  try{window.parent.postMessage({type:'cc-ready'},'*')}catch(e){}}
+})();
+</script>
+
+</body>
+</html>
