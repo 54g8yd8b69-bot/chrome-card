@@ -392,6 +392,17 @@ function smoothPath(p){const n=p.length;if(n<3)return pathOf(p);let d=`M${f2(p[0
   for(let i=0;i<n;i++){const p0=p[(i-1+n)%n],p1=p[i],p2=p[(i+1)%n],p3=p[(i+2)%n];
     d+=`C${f2(p1[0]+(p2[0]-p0[0])/6)} ${f2(p1[1]+(p2[1]-p0[1])/6)} ${f2(p2[0]-(p3[0]-p1[0])/6)} ${f2(p2[1]-(p3[1]-p1[1])/6)} ${f2(p2[0])} ${f2(p2[1])}`}
   return d+'Z'}
+// rounded corners for automatic saddle / flange outlines
+function roundPath(p,r=1.4){const n=p.length;if(n<3)return pathOf(p);let d='';
+  for(let i=0;i<n;i++){const P=p[i],A0=p[(i-1+n)%n],B0=p[(i+1)%n],la=Math.hypot(A0[0]-P[0],A0[1]-P[1])||1,lb=Math.hypot(B0[0]-P[0],B0[1]-P[1])||1,ra=Math.min(r,la*0.5),rb=Math.min(r,lb*0.5);
+    const p1=[P[0]+(A0[0]-P[0])/la*ra,P[1]+(A0[1]-P[1])/la*ra],p2=[P[0]+(B0[0]-P[0])/lb*rb,P[1]+(B0[1]-P[1])/lb*rb];
+    d+=(i?'L':'M')+f2(p1[0])+' '+f2(p1[1])+'Q'+f2(P[0])+' '+f2(P[1])+' '+f2(p2[0])+' '+f2(p2[1])}
+  return d+'Z'}
+const roundAuto=(p,r=1.4)=>roundPath(simplify(p,0.12),r);
+// rounded distal end of a free-end saddle: from edge point A0 round to edge point B0, bulging away along the arch (dir +1 = increasing s)
+function endCap(a,s,A0,B0,dir,k){const q=Q(a,s+dir*0.2,0),q0=Q(a,s,0);let ox=q[0]-q0[0],oy=q[1]-q0[1];const l=Math.hypot(ox,oy)||1;ox/=l;oy/=l;
+  const M=[(A0[0]+B0[0])/2,(A0[1]+B0[1])/2],hx=A0[0]-M[0],hy=A0[1]-M[1],bul=Math.hypot(hx,hy)*2*k,out=[];
+  for(let i=1;i<18;i++){const t=i/18*Math.PI;out.push([M[0]+Math.cos(t)*hx+Math.sin(t)*ox*bul,M[1]+Math.cos(t)*hy+Math.sin(t)*oy*bul])}return out}
 function pip(pt,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];
   if((a[1]>pt[1])!==(b[1]>pt[1])&&pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c}
 function inConn(a,pt){let n=0;connPolys(a).forEach(p=>{if(pip(pt,p))n++});return n%2===1}
@@ -504,13 +515,17 @@ function kennedySVG(a){let o='';const h=s=>hb(a,s);
       const p=[Q(a,s-0.8*Math.sign(s||1),h(s)-1),Q(a,s+0.8*Math.sign(s||1),h(s)-1),Q(a,s+0.8*Math.sign(s||1),d2),Q(a,s-0.8*Math.sign(s||1),d2)];
       o+=`<path d="${pathOf(p)}" fill="${CC.kb}" fill-opacity="${REAL()?1:0.85}" stroke="${REAL()?C.metal:CC.kb}" stroke-width="0.3"/>`})});
   return o}
-const MESHX={full:4.2,short:2.5,tooth:0.3};
+const MESHX={full:[1.0,0.34],short:[0.3,0.18],tooth:[0.3,0.04]};
 function meshAuto(a){
-  const T=S.arches[a].teeth,{out}=runs(a,isRep),res=[],ext=MESHX[S.arches[a].meshExt||'full']||4.2;
+  const T=S.arches[a].teeth,{out}=runs(a,isRep),res=[],ext=MESHX[S.arches[a].meshExt||'full']||MESHX.full;
   out.forEach(r=>{let s0=1e9,s1=-1e9;r.keys.forEach(K=>{const q=sRange(a,K);s0=Math.min(s0,q[0]);s1=Math.max(s1,q[1])});
-    s0-=0.3;s1+=0.3;if(r.keys.includes(lastKey(a,'R')))s0-=ext-0.3;if(r.keys.includes(lastKey(a,'L')))s1+=ext-0.3;
+    const feR=r.keys.includes(lastKey(a,'R')),feL=r.keys.includes(lastKey(a,'L'));
+    s0-=0.3;s1+=0.3;if(feR)s0-=ext[0];if(feL)s1+=ext[0];
     const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.2,c+0.8):h+1.2};
-    res.push(curve(a,s0,s1,s=>-hb(a,s)*0.45,0.3).concat(curve(a,s1,s0,lin)))});return res}
+    const Bc=curve(a,s0,s1,s=>-hb(a,s)*0.45,0.3),Lc=curve(a,s1,s0,lin);let poly=Bc.slice();
+    if(feL)poly=poly.concat(endCap(a,s1,Bc[Bc.length-1],Lc[0],1,ext[1]));poly=poly.concat(Lc);
+    if(feR)poly=poly.concat(endCap(a,s0,Lc[Lc.length-1],Bc[0],-1,ext[1]));
+    res.push(poly)});return res}
 const bite=a=>S.arches[a].bite||{};
 const bpMetal=a=>!isAcr(a)&&bite(a).mat==='metal';
 function biteSVG(a){const b=bite(a),h=s=>hb(a,s),T=S.arches[a].teeth;let o='';
@@ -530,21 +545,26 @@ function saddleAuto(a){
   out.forEach(r=>{
     let s0=1e9,s1=-1e9;r.keys.forEach(K=>{const q=sRange(a,K);s0=Math.min(s0,q[0]);s1=Math.max(s1,q[1])});
     s0-=0.3;s1+=0.3;
-    if(r.keys.includes(lastKey(a,'R')))s0-=5;
-    if(r.keys.includes(lastKey(a,'L')))s1+=5;
+    const feR=r.keys.includes(lastKey(a,'R')),feL=r.keys.includes(lastKey(a,'L'));
+    if(feR)s0-=1.2;
+    if(feL)s1+=1.2;
     const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.6,c+0.8):h+1.6};
     const bu0=(REAL()||isAcr(a))?2.8:1.6;
     const bu=s=>sock&&eR.some(q=>s>=q[0]-0.6&&s<=q[1]+0.6)?-hb(a,s)*0.35:bu0;
-    res.push(curve(a,s0,s1,s=>-(hb(a,s)+bu(s)),0.3).concat(curve(a,s1,s0,lin)));
+    // rounded flange: free ends finish in a rounded tuberosity / retromolar end, other corners are softened when drawn
+    const Bc=curve(a,s0,s1,s=>-(hb(a,s)+bu(s)),0.3),Lc=curve(a,s1,s0,lin);let poly=Bc.slice();
+    if(feL)poly=poly.concat(endCap(a,s1,Bc[Bc.length-1],Lc[0],1,0.42));poly=poly.concat(Lc);
+    if(feR)poly=poly.concat(endCap(a,s0,Lc[Lc.length-1],Bc[0],-1,0.42));
+    res.push(poly);
   });return res;
 }
 function saddlesSVG(a){
-  const ps=saddlePolys(a),sp=S.arches[a].sshape?smoothPath:pathOf;
+  const ps=saddlePolys(a),sp=S.arches[a].sshape?smoothPath:p=>roundAuto(p,1.6);
   if(isAcr(a)){const cp=connPolys(a),cd=cp.length?(S.arches[a].shape?cp.map(smoothPath):cp.map(pathOf)).join(''):'';
     const all=ps.map(sp);if(cd)all.push(cd);
     return all.map(d=>`<path d="${d}" fill-rule="evenodd" fill="${C.acr}" stroke="${C.acrLn}" stroke-width="0.7" stroke-linejoin="round"/>`).join('')+
       all.map(d=>`<path d="${d}" fill-rule="evenodd" fill="${C.acr}"/>`).join('')}
-  const ms=meshPolys(a),mp=S.arches[a].mshape?smoothPath:pathOf;
+  const ms=meshPolys(a),mp=S.arches[a].mshape?smoothPath:p=>roundAuto(p,1);
   return ps.map(p=>`<path d="${sp(p)}" fill="${C.acr}" stroke="${C.acrLn}" stroke-width="0.35" stroke-linejoin="round"/>`).join('')+
     ms.map(p=>`<path d="${mp(p)}" fill="url(#${REAL()?'meshR':'mesh'}-${a})" stroke="${C.metal}" stroke-width="${REAL()?0.3:0.35}" stroke-linejoin="round"${REAL()?' stroke-dasharray="1 0.6"':''}/>`).join('');
 }
