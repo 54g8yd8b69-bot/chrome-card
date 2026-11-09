@@ -107,7 +107,7 @@ a.homelink{color:inherit;text-decoration:none}a.homelink:hover{opacity:.8}a.home
     </section>
 
     <section class="panel">
-      <div class="row" style="justify-content:space-between"><h2>Design summary</h2><span class="row"><button class="btn" id="sumEditBtn" type="button">Edit</button><button class="btn" id="copyText" type="button">Copy text</button></span></div>
+      <div class="row" style="justify-content:space-between"><h2>Design summary</h2><span class="row"><button class="btn" id="sumEditBtn" type="button">Edit</button><button class="btn" id="copy3d" type="button" title="Copy this arch's design to paste into Chrome Card 3D">Copy for 3D</button><button class="btn" id="copyText" type="button">Copy text</button></span></div>
       <p class="sumnote" id="sumNote" hidden>Edited by hand: changes to the drawing won't update this text. <button class="chip" id="sumAuto" type="button">Back to automatic</button></p>
       <ul class="summary" id="summary"></ul>
       <div id="sumEdBox" hidden style="display:grid;gap:8px"><label class="lbl" for="sumEd">Edit the summary for this arch. First line is the classification; other lines read "Heading: text".</label><textarea id="sumEd" spellcheck="true"></textarea>
@@ -1120,6 +1120,26 @@ function tap(pt,target){
 
 // toast & copy text
 let tt0;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt0);tt0=setTimeout(()=>t.classList.remove('on'),1800)}
+// design for Chrome Card 3D: tooth frames and every outline in drawing coordinates (mm), fitted to the scan there
+function export3D(a){PC={};const T=S.arches[a].teeth,R2=q=>[+q[0].toFixed(3),+q[1].toFixed(3)],W=(x,u,v)=>R2([x.F.P[0]+u*x.F.D[0]+v*x.B[0],x.F.P[1]+u*x.F.D[1]+v*x.B[1]]),h=s=>hb(a,s),acr=isAcr(a),P2=ps=>ps.map(p=>p.map(R2));
+  const teeth={};KEYS.forEach(K=>{const tt=T[K];if(tt.st==='c')return;const x=toothXf(a,K);teeth[K]={st:tt.st,P:R2(x.F.P),D:R2(x.F.D),B:R2(x.B),w:+x.t.w.toFixed(2),h:+x.t.h.toFixed(2)}});
+  const kb=kbRuns(a).map(r=>{const s0=sRange(a,r[0])[0]+0.6,s1=sRange(a,r[r.length-1])[1]-0.6;return curve(a,s0,s1,s=>h(s)-1.6).concat(curve(a,s1,s0,s=>h(s)-0.3)).map(R2)});
+  const rests=[],clasps=[];
+  KEYS.forEach(K=>{const tt=T[K];if(tt.st!=='p')return;const x=toothXf(a,K),t=x.t,L=cl=>cl.map(q=>W(x,q[0],q[1]));
+    ['m','d'].forEach(sd=>{if(tt.rest[sd])rests.push({K,type:'occ',p:W(x,(sd==='m'?-1:1)*(t.w-1.4),0)})});
+    if(tt.rest.c)rests.push({K,type:'cing',p:W(x,0,-t.h+1.3)});
+    if(tt.recip){const sg=tt.recip.o==='m'?-1:1;clasps.push({K,kind:'recip',pts:L(arm(t,sg,-1,8,140))})}
+    if(tt.rpi&&!(tt.clasp&&tt.clasp.type==='ibar')){const sg=tt.rpi==='m'?-1:1;clasps.push({K,kind:'ibar',ging:true,pts:L([[sg*(t.w+1.8),t.h+3.2],[sg*t.w*0.5,t.h+3.2],[0,t.h+2.4],[0,t.h+0.6]])})}
+    if(tt.clasp&&tt.clasp.type!=='gasket'){const c=tt.clasp,sg=c.o==='m'?-1:1,mat=c.mat||'cast',kind=mat==='cast'?'cast':mat==='gold'?'gold':'wire';
+      if(c.type==='ibar'||c.type==='tbar')clasps.push({K,kind:mat==='cast'?'ibar':kind,ging:true,pts:L([[sg*(t.w+1.8),t.h+3.2],[sg*t.w*0.5,t.h+3.2],[0,t.h+2.4],[0,t.h+0.6]])});
+      else clasps.push({K,kind,pts:L(arm(t,sg,1,8,c.type==='ring'?330:c.type==='cc'?170:150,0.55))})}});
+  const sm=summary(a);
+  return {app:'Chrome Card',for:'Chrome Card 3D',version:1,arch:a,acrylic:acr,teeth,
+    conn:acr?[]:P2(connPolys(a)).concat(kb),saddles:P2(acr?saddlePolys(a).concat(connPolys(a)):saddlePolys(a)),mesh:acr?[]:P2(meshPolys(a)),rests,clasps,
+    kennedy:sm.ken.text,summary:sm.lines.map(l=>l[0]?l[0]+': '+l[1]:l[1])}}
+$('copy3d').onclick=async()=>{const txt=JSON.stringify(export3D(S.arch));render();
+  try{await navigator.clipboard.writeText(txt);toast('Copied. Paste it into Chrome Card 3D (step 3)')}
+  catch(e){$('sumEd').value=txt;$('sumEdBox').hidden=false;renderSummary();$('sumEd').focus();$('sumEd').select();toast('Copy blocked: the design is selected below, copy it with Ctrl+C or Cmd+C, then press Cancel')}};
 $('sumEditBtn').onclick=()=>{$('sumEd').value=sumAsText(summary(S.arch));$('sumEdBox').hidden=false;renderSummary();$('sumEd').focus()};
 $('sumCancel').onclick=()=>{$('sumEdBox').hidden=true;renderSummary()};
 $('sumSave').onclick=()=>{const v=$('sumEd').value,auto=sumAsText(summaryAuto(S.arch));$('sumEdBox').hidden=true;commit(()=>{A().sumText=v.trim()===auto.trim()?null:v});toast(A().sumText==null?'Summary unchanged':'Summary text saved')};
