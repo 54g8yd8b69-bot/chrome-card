@@ -384,11 +384,21 @@ const barShort=a=>a==='lower'&&!isAcr(a)&&BARC.includes(S.arches[a].conn)&&(S.ar
 function feEnd(a,side){const lk=lastKey(a,side);if(!lk||!isRep(S.arches[a].teeth[lk]))return null;const {out}=runs(a,isRep),r=out.find(q=>q.keys.includes(lk));if(!r)return null;
   const ks=r.keys.filter(K=>K[0]===side);if(!ks.length||r.keys.some(K=>K[0]!==side))return null;const Km=ks.reduce((x,y)=>+y[1]<+x[1]?y:x),q=sRange(a,Km);
   return side==='R'?q[1]-7:q[0]+7}
+// most distal minor connector on a side (component, or the distal end of a saddle): a lower bar need not run past it
+const truthy=v=>v&&(typeof v!=='object'||Object.values(v).some(Boolean));
+function minorEnd(a,side){const T=S.arches[a].teeth;let best=null;
+  for(let k=1;k<=8;k++){const t=T[side+k];if(!t||t.st==='c'||t.st==='n')continue;const g=G[a].t[k-1];let e=null;
+    if(isRep(t))e=g.s1;
+    else{const dist=(t.rest&&t.rest.d)||(t.clasp&&t.clasp.o==='d')||(t.recip&&t.recip.o==='d')||(t.guide&&t.guide.d)||t.rpi==='d'||(t.crown&&t.crown.o==='d')||t.rring||(t.clasp&&t.clasp.type==='gasket');
+      if(dist)e=g.s1;else if(Object.keys(t).some(k2=>k2!=='st'&&k2!=='imp'&&truthy(t[k2])))e=g.sc}
+    if(e!=null)best=Math.max(best==null?-1:best,e)}
+  return best==null?null:(side==='R'?-1:1)*(best+1.4)}
 function presetPolys(a){
   const c=S.arches[a].conn;if(c==='none')return [];
   let R=arm_end(a,'R'),L=arm_end(a,'L');const t=G[a].t,h=s=>hb(a,s);
   let rS=false,lS=false;
   if(barShort(a)){const r=feEnd(a,'R'),l=feEnd(a,'L');if(r!=null&&r>R){R=r;rS=true}if(l!=null&&l<L){L=l;lS=true}}
+  if(a==='lower'&&!isAcr(a)&&BARC.includes(c)){const r=minorEnd(a,'R'),l=minorEnd(a,'L');if(!rS&&r!=null&&r>R)R=r;if(!lS&&l!=null&&l<L)L=l}
   // where the connector stops in a free-end saddle, its outer edge sweeps in smoothly to meet the mesh instead of ending square
   const TL=8,sm=x=>{const t=Math.max(0,Math.min(1,x/TL));return t*t*(3-2*t)};
   const band=(s0,s1,d1,d2)=>{const d2t=(rS||lS)?s=>{const a1=d1(s)+0.8,b1=d2(s);let k=1;if(rS&&s<0)k=Math.min(k,sm(s-R));if(lS&&s>0)k=Math.min(k,sm(L-s));return a1+(b1-a1)*k}:d2;
