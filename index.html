@@ -398,7 +398,7 @@ function presetPolys(a){
   let R=arm_end(a,'R'),L=arm_end(a,'L');const t=G[a].t,h=s=>hb(a,s);
   let rS=false,lS=false;
   if(barShort(a)){const r=feEnd(a,'R'),l=feEnd(a,'L');if(r!=null&&r>R){R=r;rS=true}if(l!=null&&l<L){L=l;lS=true}}
-  if(a==='lower'&&!isAcr(a)&&BARC.includes(c)){const r=minorEnd(a,'R'),l=minorEnd(a,'L');if(!rS&&r!=null&&r>R)R=r;if(!lS&&l!=null&&l<L)L=l}
+  if(a==='lower'&&!isAcr(a)&&BARC.includes(c)){const r=minorEnd(a,'R'),l=minorEnd(a,'L');if(!rS&&r!=null&&r>R){R=r;rS=true}if(!lS&&l!=null&&l<L){L=l;lS=true}}
   // where the connector stops in a free-end saddle, its outer edge sweeps in smoothly to meet the mesh instead of ending square
   const TL=8,sm=x=>{const t=Math.max(0,Math.min(1,x/TL));return t*t*(3-2*t)};
   const band=(s0,s1,d1,d2)=>{const d2t=(rS||lS)?s=>{const a1=d1(s)+0.8,b1=d2(s);let k=1;if(rS&&s<0)k=Math.min(k,sm(s-R));if(lS&&s>0)k=Math.min(k,sm(L-s));return a1+(b1-a1)*k}:d2;
