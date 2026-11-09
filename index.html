@@ -76,6 +76,12 @@ textarea{min-height:84px;resize:vertical}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend svg{flex:none}
 .legend i{display:inline-block;width:16px;height:8px;border-radius:2px}
+.colpanel{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px;background:var(--bg)}
+.colgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px}
+.colgrid label{display:flex;align-items:center;gap:8px;font-size:.9rem;min-width:0}
+.colgrid input[type=color]{width:38px;height:30px;padding:0 2px;border:1px solid var(--line);border-radius:6px;background:var(--surface);flex:none;cursor:pointer}
+.sumnote{margin:0;font-size:.88rem;color:var(--warn);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+#sumEd{font:inherit;font-size:.95rem;line-height:1.5;min-height:220px;width:100%}
 a.homelink{color:inherit;text-decoration:none}a.homelink:hover{opacity:.8}a.homelink:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:6px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
@@ -101,8 +107,11 @@ a.homelink{color:inherit;text-decoration:none}a.homelink:hover{opacity:.8}a.home
     </section>
 
     <section class="panel">
-      <div class="row" style="justify-content:space-between"><h2>Design summary</h2><button class="btn" id="copyText" type="button">Copy text</button></div>
+      <div class="row" style="justify-content:space-between"><h2>Design summary</h2><span class="row"><button class="btn" id="sumEditBtn" type="button">Edit</button><button class="btn" id="copyText" type="button">Copy text</button></span></div>
+      <p class="sumnote" id="sumNote" hidden>Edited by hand: changes to the drawing won't update this text. <button class="chip" id="sumAuto" type="button">Back to automatic</button></p>
       <ul class="summary" id="summary"></ul>
+      <div id="sumEdBox" hidden style="display:grid;gap:8px"><label class="lbl" for="sumEd">Edit the summary for this arch. First line is the classification; other lines read "Heading: text".</label><textarea id="sumEd" spellcheck="true"></textarea>
+        <div class="row"><button class="btn primary" id="sumSave" type="button">Save text</button><button class="btn" id="sumCancel" type="button">Cancel</button></div></div>
     </section>
   </div>
 
@@ -120,8 +129,10 @@ a.homelink{color:inherit;text-decoration:none}a.homelink:hover{opacity:.8}a.home
         <div class="seg" role="group" aria-label="Drawing style">
           <button type="button" id="sR" data-style="real">Realistic</button>
           <button type="button" id="sC" data-style="col">Colour-coded</button>
+          <button type="button" id="colBtn" aria-expanded="false">Colours…</button>
         </div>
       </div>
+      <div id="colPanel" class="colpanel" hidden></div>
       <div class="tools" role="group" aria-label="Tools" id="tools"></div>
       <div class="seg" id="subopts"></div>
       <p class="hint" id="hint"></p>
@@ -188,13 +199,18 @@ for(const a of ['upper','lower']){
   G[a]={X,Y,T,t,flip:a==='upper'?1:-1};
 }
 // ---------- spacing: extra gaps between adjacent teeth (warps arch position) ----------
-function spGaps(a){const ar=typeof S!=='undefined'&&S.arches&&S.arches[a],sp=(ar&&ar.space)||{},key=JSON.stringify(sp),g=G[a];if(g._sk===key)return g._sp;
-  const R=[0,0,0,0,0,0,0],L=[0,0,0,0,0,0,0];let m=0;
+function spGaps(a){const ar=typeof S!=='undefined'&&S.arches&&S.arches[a],sp=(ar&&ar.space)||{},cl=ar?KEYS.filter(K=>ar.teeth[K]&&ar.teeth[K].st==='c'):[],key=JSON.stringify(sp)+cl.join(),g=G[a];if(g._sk===key)return g._sp;
+  const R=[0,0,0,0,0,0,0],L=[0,0,0,0,0,0,0],cR=[0,0,0,0,0,0,0,0],cL=[0,0,0,0,0,0,0,0];let m=0;
   for(const k in sp){const v=Math.max(0,+sp[k]||0);if(!v)continue;const [A1,B1]=k.split('|');if(A1[0]!==B1[0])m=v;else (A1[0]==='R'?R:L)[Math.min(+A1[1],+B1[1])-1]=v}
-  g._sk=key;g._sp={R,L,m,any:m>0||R.some(x=>x)||L.some(x=>x)};return g._sp}
+  cl.forEach(K=>{(K[0]==='R'?cR:cL)[+K[1]-1]=1});const anyC=cl.length>0;
+  g._sk=key;g._sp={R,L,m,cR,cL,anyC,any:m>0||anyC||R.some(x=>x)||L.some(x=>x)};return g._sp}
 function W(a,s){if(!s)return 0;const sp=spGaps(a);if(!sp.any)return s;const q=Math.abs(s),arr=s<0?sp.R:sp.L,t=G[a].t;let p=q+sp.m/2;
-  for(let i=0;i<7;i++)if(arr[i])p+=arr[i]*Math.max(0,Math.min(1,(q-t[i].s1)/GAP));return s<0?-p:p}
-function Winv(a,p){const sp=spGaps(a);if(!sp.any)return p;const sg=p<0?-1:1,arr=p<0?sp.R:sp.L,t=G[a].t;let P=Math.abs(p)-sp.m/2,cum=0;if(P<=0)return 0;
+  for(let i=0;i<7;i++)if(arr[i])p+=arr[i]*Math.max(0,Math.min(1,(q-t[i].s1)/GAP));
+  // removed teeth (space closed): the arch collapses over the tooth so its neighbours meet
+  if(sp.anyC){const cl=s<0?sp.cR:sp.cL;for(let i=0;i<8;i++)if(cl[i]){const a0=i?t[i].s0-GAP/2:0,len=t[i].s1-a0+GAP/2;p-=Math.max(0,Math.min(len,q-a0))}}
+  return s<0?-p:p}
+function Winv(a,p){const sp=spGaps(a);if(!sp.any)return p;
+  if(sp.anyC){const sg=p<0?-1:1,P=Math.abs(p);if(P<=sp.m/2)return 0;let lo=0,hi=110;for(let i=0;i<34;i++){const mid=(lo+hi)/2;if(W(a,sg*mid)*sg<P)lo=mid;else hi=mid}return sg*(lo+hi)/2}const sg=p<0?-1:1,arr=p<0?sp.R:sp.L,t=G[a].t;let P=Math.abs(p)-sp.m/2,cum=0;if(P<=0)return 0;
   for(let i=0;i<7;i++){if(!arr[i])continue;const a0=t[i].s1;if(P<=a0+cum)return sg*(P-cum);if(P<=a0+cum+GAP+arr[i])return sg*(a0+(P-cum-a0)/(GAP+arr[i])*GAP);cum+=arr[i]}
   return sg*(P-cum)}
 function frame(a,s){return framePhys(a,W(a,s))}
@@ -251,7 +267,11 @@ const PAL={
     CC:{rest:'#2B2F33',circ:'#8E949B',cc:'#8E949B',ibar:'#8E949B',tbar:'#8E949B',ring:'#8E949B',ww:'#B08D57',gold:'#C99A1E',recip:'#8E949B',guide:'#1D2430',ov:'#8E949B',pp:'#8E949B',gasket:'#B39DDB',rring:'#8E949B',mcrown:'#5D6D7E',pcrown:'#2B2F33',kb:'#8E949B',loc:'#455A64',nova:'#3949AB',tele:'#2B2F33'}}};
 const PEEKC={col:{metal:'#8A7346',metalLt:'#EADFC6',mesh:'#F6F0E2'},real:{metalLt:'#CDBB92',mesh:'#F3ECDC'}};
 const isPeek=a=>!!a&&S.arches[a]&&S.arches[a].fmat==='peek'&&!isAcr(a);
+const CKEY='chromecard-colours';let UCOL={c:{},cc:{}};try{const u=JSON.parse(localStorage.getItem(CKEY)||'null');if(u&&u.cc)UCOL={c:u.c||{},cc:u.cc}}catch(e){}
+const saveCol=()=>{try{localStorage.setItem(CKEY,JSON.stringify(UCOL))}catch(e){}};
+const CEXTRA=[['metalLt','Major connector / framework'],['metal','Framework outline'],['acr','Acrylic'],['den','Denture teeth']];
 function applyStyle(a){const st=S.style==='col'?'col':'real',P=PAL[st];Object.assign(C,P.C);Object.assign(CC,P.CC);
+  if(st==='col'){Object.assign(C,UCOL.c);Object.assign(CC,UCOL.cc)}
   if(isPeek(a)){const grey=P.C.metalLt;Object.assign(C,PEEKC[st]);if(st==='real')for(const k in CC)if(CC[k]===grey)CC[k]=C.metalLt}}
 function arrowHead(cl){const e=cl[cl.length-1],q=cl[cl.length-4];let dx=e[0]-q[0],dy=e[1]-q[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
   const tip=[e[0]+dx*2,e[1]+dy*2],b1=[e[0]-dy*1.25-dx*0.4,e[1]+dx*1.25-dy*0.4],b2=[e[0]+dy*1.25-dx*0.4,e[1]-dx*1.25-dy*0.4];
@@ -279,7 +299,9 @@ const m=MATS[c.mat||'cast'],o=c.o==='m'?'mesial':'distal',uc=`(${m[2]} mm underc
   return `${pre} circumferential clasp from ${o} ${uc}`}
 const cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
 function migrate(st){['upper','lower'].forEach(a=>{const r=st.arches&&st.arches[a];if(!r)return;KEYS.forEach(K=>{const c=r.teeth[K]&&r.teeth[K].clasp;if(c&&!c.mat){if(c.type==='ww'){c.type='circ';c.mat='wrought'}else if(c.type==='gold'){c.type='circ';c.mat='gold'}else c.mat='cast'}})})}
-function nbKey(K,o){const sd=K[0],k=+K[1];if(o==='d')return k<8?sd+(k+1):null;return k>1?sd+(k-1):(sd==='R'?'L1':'R1')}
+function nbKey0(K,o){const sd=K[0],k=+K[1];if(o==='d')return k<8?sd+(k+1):null;return k>1?sd+(k-1):(sd==='R'?'L1':'R1')}
+function nbKey(K,o){let n=nbKey0(K,o),g=0;const T=typeof S!=='undefined'&&S.arches&&S.arch?S.arches[S.arch].teeth:null;
+  while(n&&T&&T[n]&&T[n].st==='c'&&g++<16){const nx=n[0]===K[0]||o==='d'?nbKey0(n,o):nbKey0(n,'d');n=nx}return n}
 function blankTooth(k){return {st:k===8?'n':'p',rest:{m:false,d:false,c:false},clasp:null,recip:null,guide:{m:false,d:false},ov:{mb:false,db:false,ml:false,dl:false},kb:false,imp:null,tele:null}}
 function blankArch(a){const t={};KEYS.forEach(K=>t[K]=blankTooth(+K[1]));return {teeth:t,conn:a==='upper'?'plate':'bar',ann:[],type:'cocr',flange:'flanged'}}
 const TYPES={cocr:'Cobalt-chrome',acrylic:'Acrylic',immediate:'Immediate acrylic',obturator:'Obturator'};
@@ -333,7 +355,7 @@ function tname(a,K){return S.notation==='palmer'?(a==='upper'?'U':'L')+K[0]+K[1]
 // ---------- Analysis ----------
 function sRange(a,K){const t=G[a].t[+K[1]-1];return K[0]==='R'?[-t.s1,-t.s0]:[t.s0,t.s1]}
 function trimmedSeq(a){
-  const T=S.arches[a].teeth;let seq=KEYS.slice();
+  const T=S.arches[a].teeth;let seq=KEYS.filter(K=>T[K].st!=='c');
   const trim=first=>{const end=()=>first?seq[0]:seq[seq.length-1],drop=()=>first?seq.shift():seq.pop();
     if(+end()[1]===8&&T[end()].st==='n')drop();if(+end()[1]===7&&T[end()].st==='n'&&+end()[1]===7&&!seq.includes(end()[0]+'8'))drop()};
   trim(true);trim(false);return seq;
@@ -354,7 +376,7 @@ function kennedy(a){
   return {cls,mods,text:'Kennedy Class '+cls+(mods?', mod. '+mods:'')};
 }
 function arm_end(a,side){ // signed s of distal extent on a side
-  const T=S.arches[a].teeth;for(let k=8;k>=1;k--){const t=T[side+k];if(t.st!=='n'){const g=G[a].t[k-1];return (side==='R'?-1:1)*(g.sc+g.w*.55)}}return 0}
+  const T=S.arches[a].teeth;for(let k=8;k>=1;k--){const t=T[side+k];if(t.st!=='n'&&t.st!=='c'){const g=G[a].t[k-1];return (side==='R'?-1:1)*(g.sc+g.w*.55)}}return 0}
 let PC={};
 function presetPolys(a){
   const c=S.arches[a].conn;if(c==='none')return [];
@@ -381,7 +403,7 @@ function rdp(p,tol){if(p.length<3)return p.slice();let md=0,mi=0;const a=p[0],b=
   if(md>tol)return rdp(p.slice(0,mi+1),tol).slice(0,-1).concat(rdp(p.slice(mi),tol));return [a,b]}
 function simplify(p,tol){let fi=0,fd=0;p.forEach((q,i)=>{const d=Math.hypot(q[0]-p[0][0],q[1]-p[0][1]);if(d>fd){fd=d;fi=i}});
   const A1=rdp(p.slice(0,fi+1),tol),B1=rdp(p.slice(fi).concat([p[0]]),tol);return A1.slice(0,-1).concat(B1.slice(0,-1)).map(q=>[f2(q[0]),f2(q[1])])}
-let biteType='flat',biteMat='acrylic',olTarget='conn',restMode='occ',dSide='R',crownType='milled',crownFeats=['guide','rest','ledge'],attType='extra',gapMM=2;
+let biteType='flat',biteMat='acrylic',olTarget='conn',restMode='occ',dSide='R',crownType='milled',crownFeats=['guide','rest','ledge'],attType='extra',gapMM=2,spMode='open';
 const CFEAT={guide:'milled guide plane',rest:'rest seat',ledge:'lingual ledge for reciprocation'};
 const olKey=()=>olTarget==='saddle'?'sshape':olTarget==='mesh'?'mshape':olTarget==='defect'?'defect':'shape';
 function editPolys(a){if(olTarget==='defect')return S.arches[a].defect||[];
@@ -568,12 +590,13 @@ function saddlesSVG(a){
   return ps.map(p=>`<path d="${sp(p)}" fill="${C.acr}" stroke="${C.acrLn}" stroke-width="0.35" stroke-linejoin="round"/>`).join('')+
     ms.map(p=>`<path d="${mp(p)}" fill="url(#${REAL()?'meshR':'mesh'}-${a})" stroke="${C.metal}" stroke-width="${REAL()?0.3:0.35}" stroke-linejoin="round"${REAL()?' stroke-dasharray="1 0.6"':''}/>`).join('');
 }
-function lastKey(a,side){const T=S.arches[a].teeth;for(let k=8;k>=1;k--){if(T[side+k].st!=='n')return side+k}return null}
+function lastKey(a,side){const T=S.arches[a].teeth;for(let k=8;k>=1;k--){if(T[side+k].st!=='n'&&T[side+k].st!=='c')return side+k}return null}
 function toothXf(a,K){const t=G[a].t[+K[1]-1],s=(K[0]==='R'?-1:1)*t.sc,F=frame(a,s);const B=[-F.N[0],-F.N[1]];
   return {t,s,F,B,m:`matrix(${f2(F.D[0])} ${f2(F.D[1])} ${f2(B[0])} ${f2(B[1])} ${f2(F.P[0])} ${f2(F.P[1])})`}}
 function teethSVG(a){
   const T=S.arches[a].teeth;let o='',labels='',imps='';
   KEYS.forEach(K=>{const x=toothXf(a,K),t=x.t,tt=T[K],ol=pathOf(outline(t));
+    if(tt.st==='c')return;
     let g='';
     if(tt.st==='p'){g=`<path d="${ol}" fill="${C.tooth}" stroke="${C.toothLn}" stroke-width="0.3"/>`;
       if(t.k>=4)g+=`<path d="M${f2(-t.w*.55)} 0 L${f2(t.w*.55)} 0" stroke="#C3C9D1" stroke-width="0.25" fill="none"/>`}
@@ -738,7 +761,13 @@ function drawSwatch(ctx,it,x,y){const c=it.col;ctx.save();ctx.fillStyle=c;ctx.st
 
 // ---------- Summary ----------
 function connName(a){const r=S.arches[a],c=r.conn,f=connList(a).find(x=>x[0]===c),n=f?f[1]:'None';if(r.shape)return r.shape.length?(c==='none'?'Custom framework outline':n+' (custom outline)'):'None';return n}
-function summary(a){
+// hand-edited summary: first line = classification, then "Heading: text" lines
+function summary(a){const auto=summaryAuto(a),ov=S.arches[a].sumText;if(typeof ov!=='string')return auto;
+  const ls=ov.split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return {ken:Object.assign({},auto.ken,{text:''}),lines:[]};
+  return {ken:Object.assign({},auto.ken,{text:ls[0]}),lines:ls.slice(1).map(l=>{const i=l.indexOf(': ');return i>0&&i<40?[l.slice(0,i),l.slice(i+2)]:['',l]}),edited:true}}
+const sumAsText=s=>[s.ken.text].concat(s.lines.map(l=>l[0]?l[0]+': '+l[1]:l[1])).join('\n');
+const escH=x=>String(x).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+function summaryAuto(a){
   const T=S.arches[a].teeth,lines=[],ken=(isObt(a)&&aramany(a))||kennedy(a);
   const nm=K=>tname(a,K);
   const {seq,out}=runs(a,isRep);
@@ -754,6 +783,7 @@ function summary(a){
   if(!isAcr(a)&&out.length){const r=S.arches[a],tub=a==='upper'?'tuberosity':'retromolar pad',fe=out.some(q=>q.keys.includes(lastKey(a,'R'))||q.keys.includes(lastKey(a,'L')));
     if(r.mshape)lines.push(['Mesh','custom extension (see drawing)']);else if(fe&&r.meshExt==='short')lines.push(['Mesh',`stops short of the ${tub}; acrylic only beyond`]);else if(fe&&r.meshExt==='tooth')lines.push(['Mesh',`ends at the distal of the last denture tooth; not extended over the ${tub}`])}
   const nr=KEYS.filter(K=>T[K].st==='n'&&+K[1]!==8);if(nr.length)lines.push(['Not replaced',nr.map(nm).join(', ')]);
+  const cs=KEYS.filter(K=>T[K].st==='c');if(cs.length)lines.push(['Absent, space closed',cs.map(nm).join(', ')+' (e.g. orthodontic extractions with spaces closed)']);
   const im=KEYS.filter(K=>T[K].imp&&T[K].st!=='p');
   if(im.length){const by=k=>im.filter(K=>T[K].imp===k).map(nm);const parts=Object.keys(IMP).filter(k=>by(k).length).map(k=>IMP[k][0]+(by(k).length>1?' abutments ':' abutment ')+by(k).join(', '));
     lines.push(['Implants',parts.join('; ')+' (implant-retained overdenture; housings to be picked up in the denture base)'])}
@@ -783,11 +813,11 @@ function summary(a){
   if(isPeek(a))lines.forEach(l=>{if(typeof l[1]==='string')l[1]=l[1].replace(/\bcast\b/g,'milled PEEK').replace(/\bCast\b/g,'Milled PEEK').replace(/\bmetal\b/g,'PEEK')});
   return {ken,lines};
 }
-function archUsed(a){const r=S.arches[a];return r.ann.length>0||!!(r.collets&&r.collets.length)||!!r.mshape||!!(r.bite&&(r.bite.ant||(r.bite.post||[]).length))||!!(r.space&&Object.keys(r.space).length)||!!r.shape||!!r.sshape||!!r.defect||KEYS.some(K=>{const t=r.teeth[K];return (t.st!=='p'&&+K[1]!==8)||r.type&&r.type!=='cocr'||t.rest.m||t.rest.d||t.rest.c||t.rring||t.crown||t.clasp||t.recip||t.guide.m||t.guide.d||t.kb||t.imp||t.tele||(t.ov&&Object.values(t.ov).some(Boolean))})}
+function archUsed(a){const r=S.arches[a];return r.ann.length>0||typeof r.sumText==='string'||!!(r.collets&&r.collets.length)||!!r.mshape||!!(r.bite&&(r.bite.ant||(r.bite.post||[]).length))||!!(r.space&&Object.keys(r.space).length)||!!r.shape||!!r.sshape||!!r.defect||KEYS.some(K=>{const t=r.teeth[K];return (t.st!=='p'&&+K[1]!==8)||t.st==='c'||r.type&&r.type!=='cocr'||t.rest.m||t.rest.d||t.rest.c||t.rring||t.crown||t.clasp||t.recip||t.guide.m||t.guide.d||t.kb||t.imp||t.tele||(t.ov&&Object.values(t.ov).some(Boolean))})}
 function textSummary(){
   const f=S.fields,out=[cardTitle(['upper','lower'].filter(a=>archUsed(a)||a===S.arch))+(f.date?' ('+fmtDate(f.date)+')':'')];
   ['upper','lower'].filter(a=>archUsed(a)||a===S.arch).forEach(a=>{const s=summary(a);
-    out.push('',(a==='upper'?'Upper':'Lower')+' — '+s.ken.text);s.lines.forEach(l=>out.push(l[0]+': '+l[1]))});
+    out.push('',(a==='upper'?'Upper':'Lower')+' — '+s.ken.text);s.lines.forEach(l=>out.push(l[0]?l[0]+': '+l[1]:l[1]))});
   const t=[f.shade&&'shade '+f.shade,f.mould&&'mould '+f.mould].filter(Boolean).join(', ');
   if(t)out.push('','Teeth: '+t);if(f.stage)out.push('Stage: '+f.stage);if(f.notes)out.push('Lab instructions: '+f.notes);
   return out.join('\n');
@@ -844,7 +874,9 @@ function renderTools(){
     (crownType==='milled'?`<span class="lbl" style="align-self:center;min-width:5.5em">Features</span>`+Object.entries(CFEAT).map(([k,l])=>`<button type="button" class="chip" data-cft="${k}" aria-pressed="${crownFeats.includes(k)}">${l.charAt(0).toUpperCase()+l.slice(1)}</button>`).join('')
      :`<span class="lbl" style="align-self:center;min-width:5.5em">Attachment</span>`+[['extra','Extracoronal'],['intra','Intracoronal']].map(([k,l])=>`<button type="button" class="chip" data-att="${k}" aria-pressed="${attType===k}">${l}</button>`).join(''));
   else if(tool==='bite'){so.innerHTML=[['flat','Anterior (flat)'],['inclined','Anterior (inclined)'],['post','Posterior coverage']].map(([k,l])=>`<button type="button" class="chip" data-bt="${k}" aria-pressed="${biteType===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Material</span>`+[['acrylic','Acrylic'],['metal',isPeek(S.arch)?'PEEK':'Metal']].filter(([k])=>k==='acrylic'||!isAcr(S.arch)).map(([k,l])=>`<button type="button" class="chip" data-bmat="${k}" aria-pressed="${(bite(S.arch).mat||'acrylic')===k}">${l}</button>`).join('')}
-  else if(tool==='space'){const n=Object.keys(A().space||{}).length;so.innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Gap size</span>`+[1,2,3,4,5,6,8].map(v=>`<button type="button" class="chip" data-gap="${v}" aria-pressed="${gapMM===v}">${v} mm</button>`).join('')+(n?`<button type="button" class="chip" data-gapclr="1">Close all gaps (${n})</button>`:'')+`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Framework</span>`+[[true,'Split at gaps'],[false,'Continuous across gaps']].map(([v,l])=>`<button type="button" class="chip" data-gsplit="${v}" aria-pressed="${spSplit(S.arch)===v}">${l}</button>`).join('')}
+  else if(tool==='space'){const n=Object.keys(A().space||{}).length,cl=KEYS.filter(K=>A().teeth[K].st==='c');so.innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Mode</span>`+[['open','Open a gap'],['close','Remove tooth, close space']].map(([k,l])=>`<button type="button" class="chip" data-spm="${k}" aria-pressed="${spMode===k}">${l}</button>`).join('')+
+    (cl.length?`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Removed</span>`+cl.map(K=>`<button type="button" class="chip" data-restore="${K}" title="Put this tooth back">↺ ${tname(S.arch,K)}</button>`).join(''):'')+
+    `<span style="flex-basis:100%;height:0"></span>`+(spMode==='close'?'':`<span class="lbl" style="align-self:center;min-width:5.5em">Gap size</span>`+[1,2,3,4,5,6,8].map(v=>`<button type="button" class="chip" data-gap="${v}" aria-pressed="${gapMM===v}">${v} mm</button>`).join('')+(n?`<button type="button" class="chip" data-gapclr="1">Close all gaps (${n})</button>`:''))+`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Framework</span>`+[[true,'Split at gaps'],[false,'Continuous across gaps']].map(([v,l])=>`<button type="button" class="chip" data-gsplit="${v}" aria-pressed="${spSplit(S.arch)===v}">${l}</button>`).join('')}
   else if(tool==='defect')so.innerHTML=S.arch!=='upper'?'<span class="lbl" style="align-self:center">Defects and obturators are drawn on the upper arch.</span>':
     `<span class="lbl" style="align-self:center;min-width:5.5em">Side</span>`+[['R','Right'],['L','Left']].map(([k,l])=>`<button type="button" class="chip" data-dside="${k}" aria-pressed="${dSide===k}">${l}</button>`).join('')+
     `<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Pattern</span>`+DPRE.map(([k,l])=>`<button type="button" class="chip" data-dpre="${k}">${l}</button>`).join('')+
@@ -872,6 +904,8 @@ $('subopts').addEventListener('click',e=>{const cm=e.target.closest('[data-cm]')
   const cft=e.target.closest('[data-cft]');if(cft){const k=cft.dataset.cft,i=crownFeats.indexOf(k);i<0?crownFeats.push(k):crownFeats.splice(i,1);renderTools();return}
   const bt=e.target.closest('[data-bt]');if(bt){biteType=bt.dataset.bt;renderTools();return}
   const bmt=e.target.closest('[data-bmat]');if(bmt){const v=bmt.dataset.bmat;commit(()=>{const b=A().bite||(A().bite={});b.mat=v});renderTools();return}
+  const spm=e.target.closest('[data-spm]');if(spm){spMode=spm.dataset.spm;renderTools();if(spMode==='close')setHint('Tap a tooth to remove it from the arch and close the space, e.g. after orthodontic extractions. Its neighbours move together. Removed teeth are listed so you can put them back.');return}
+  const rst=e.target.closest('[data-restore]');if(rst){const K=rst.dataset.restore;commit(()=>{A().teeth[K].st='p'});setHint(tname(S.arch,K)+' put back in the arch.');renderTools();return}
   const gp=e.target.closest('[data-gap]');if(gp){gapMM=+gp.dataset.gap;renderTools();return}
   const gs=e.target.closest('[data-gsplit]');if(gs){const v=gs.dataset.gsplit==='true';commit(()=>{A().gapSplit=v});setHint(v?'Plates, lingual plates and Kennedy bars are cut back so no metal shows through the gaps.':'Framework runs continuously across the gaps.');renderTools();return}
   if(e.target.closest('[data-gapclr]')){commit(()=>{A().space={}});setHint('All gaps closed.');renderTools();return}
@@ -895,6 +929,9 @@ $('subopts').addEventListener('click',e=>{const cm=e.target.closest('[data-cm]')
   const it=e.target.closest('[data-it]');if(it){impType=it.dataset.it;renderTools()}
   const cd=e.target.closest('[data-cd]');if(cd){cDir=cd.dataset.cd;renderTools();setHint('C clasp tip '+(cDir==='fwd'?'forward (mesially)':'backward (distally)')+'. Tap anywhere on a tooth to place it. Tap an existing C clasp to flip its direction.')}
   const p=e.target.closest('[data-pc]');if(p){penColor=p.dataset.pc;renderTools()}});
+function renderSummary(){const a=S.arch,s=summary(a);
+  $('summary').innerHTML=`<li class="gen"><span><b style="color:inherit">${escH(s.ken.text)}</b></span></li>`+s.lines.map(l=>!l[0]?`<li class="gen"><span>${escH(l[1])}</span></li>`:/^\d|^[UL][RL]/.test(l[0])?`<li><b>${escH(l[0])}</b><span>${escH(l[1])}</span></li>`:`<li class="gen"><span><b style="color:var(--muted);font-weight:700">${escH(l[0])}:</b> ${escH(l[1])}</span></li>`).join('');
+  $('sumNote').hidden=!s.edited;const ed=!$('sumEdBox').hidden;$('summary').hidden=ed;$('sumEditBtn').disabled=ed}
 function setHint(t,warn){const h=$('hint');h.textContent=t;h.classList.toggle('warn',!!warn)}
 
 function render(){
@@ -921,12 +958,22 @@ function render(){
   $('connLbl').textContent=isAcr(a)?'Acrylic base':'Major connector';
   const bm=isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome';
   $('connectors').innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Baseplate</span>`+[['chrome','Chrome'],['peek','PEEK'],['acrylic','Acrylic']].map(([k,l])=>`<button type="button" class="chip" data-bm="${k}" aria-pressed="${bm===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+connList(a).map(([k,l])=>`<button type="button" class="chip" data-conn="${k}" aria-pressed="${!A().shape&&A().conn===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-conn="custom" aria-pressed="${!!A().shape}">Custom outline…</button>`+(isAcr(a)?'':`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Mesh (free end)</span>`+[['full',a==='upper'?'Over tuberosity':'Onto retromolar pad'],['short',a==='upper'?'Short of tuberosity':'Short of pad'],['tooth','To last denture tooth']].map(([k,l])=>`<button type="button" class="chip" data-mx="${k}" aria-pressed="${!A().mshape&&(A().meshExt||'full')===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-mx="custom" aria-pressed="${!!A().mshape}">Custom…</button>`);
-  const s=summary(a);
-  $('summary').innerHTML=`<li class="gen"><span><b style="color:inherit">${s.ken.text}</b></span></li>`+s.lines.map(l=>/^\d|^[UL][RL]/.test(l[0])?`<li><b>${l[0]}</b><span>${l[1]}</span></li>`:`<li class="gen"><span><b style="color:var(--muted);font-weight:700">${l[0]}:</b> ${l[1]}</span></li>`).join('');
+  renderSummary();
   $('undo').disabled=!hist.length;$('redo').disabled=!fut.length;
 }
-document.querySelectorAll('[data-arch]').forEach(b=>b.addEventListener('click',()=>{S.arch=b.dataset.arch;render();save()}));
-document.querySelectorAll('[data-style]').forEach(b=>b.addEventListener('click',()=>{S.style=b.dataset.style;render();save()}));
+document.querySelectorAll('[data-arch]').forEach(b=>b.addEventListener('click',()=>{S.arch=b.dataset.arch;$('sumEdBox').hidden=true;render();save()}));
+document.querySelectorAll('[data-style]').forEach(b=>b.addEventListener('click',()=>{S.style=b.dataset.style;render();save();if(!$('colPanel').hidden)renderColPanel()}));
+const hx=c=>{c=String(c||'#000000');if(/^#[0-9a-f]{3}$/i.test(c))c='#'+c.slice(1).split('').map(x=>x+x).join('');return /^#[0-9a-f]{6}$/i.test(c)?c:'#000000'};
+function renderColPanel(){const P=PAL.col,cur=(k,x)=>hx((x?UCOL.c[k]:UCOL.cc[k])||(x?P.C[k]:P.CC[k])),row=(k,l,x)=>`<label><input type="color" data-colk="${k}" data-colx="${x?1:0}" value="${cur(k,x)}">${l}</label>`;
+  const n=Object.keys(UCOL.c).length+Object.keys(UCOL.cc).length;
+  $('colPanel').innerHTML=`<div class="row" style="justify-content:space-between"><span class="lbl">Colours for the colour-coded view</span><span class="row">${n?`<button type="button" class="chip" id="colReset">Reset to defaults</button>`:''}<button type="button" class="chip" id="colClose">Close</button></span></div>`+
+    (S.style==='col'?'':`<p class="hint" style="min-height:0">These colours show in the colour-coded view. <button type="button" class="chip" id="colSwitch">Switch to colour-coded</button></p>`)+
+    `<div class="colgrid">${CEXTRA.map(([k,l])=>row(k,l,true)).join('')}${LEG.map(([k,l])=>row(k,l,false)).join('')}</div><p class="hint" style="min-height:0">Saved on this device and used for every design and card image.</p>`}
+$('colBtn').onclick=()=>{const p=$('colPanel'),open=p.hidden;p.hidden=!open;$('colBtn').setAttribute('aria-expanded',open);$('colBtn').setAttribute('aria-pressed',open);if(open)renderColPanel()};
+$('colPanel').addEventListener('input',e=>{const i=e.target.closest('[data-colk]');if(!i)return;(i.dataset.colx==='1'?UCOL.c:UCOL.cc)[i.dataset.colk]=i.value;saveCol();render()});
+$('colPanel').addEventListener('click',e=>{if(e.target.id==='colClose'){$('colPanel').hidden=true;$('colBtn').setAttribute('aria-expanded','false');$('colBtn').setAttribute('aria-pressed','false')}
+  if(e.target.id==='colReset'){UCOL={c:{},cc:{}};saveCol();render();renderColPanel();toast('Colours reset')}
+  if(e.target.id==='colSwitch'){S.style='col';render();save();renderColPanel()}});
 document.querySelectorAll('[data-not]').forEach(b=>b.addEventListener('click',()=>{S.notation=b.dataset.not;render();save()}));
 $('types').addEventListener('click',e=>{const b=e.target.closest('[data-type]');if(!b)return;const ty=b.dataset.type,a=S.arch;
   commit(()=>{const r=A();r.type=ty;if(!connList(a).some(x=>x[0]===r.conn)){r.conn=connList(a)[0][0];r.shape=null}
@@ -937,8 +984,7 @@ $('types').addEventListener('click',e=>{const b=e.target.closest('[data-type]');
 $('obtp').addEventListener('click',e=>{if(e.target.closest('[data-gotodefect]')){tool='defect';renderTools();return}
   const b=e.target.closest('[data-ob]');if(!b)return;const g=b.dataset.ob,v=b.dataset.v;
   commit(()=>{const o=A().obt||(A().obt={});o[g]=(g==='bv'||g==='bh')&&o[g]===v?'':v});if(g==='frame'&&v==='acrylic'){claspMat='wrought';claspType='circ'}});
-$('obtp').addEventListener('input',e=>{if(e.target.id!=='obH')return;const o=A().obt||(A().obt={});o.height=e.target.value;save();const s=summary(S.arch);
-  $('summary').innerHTML=`<li class="gen"><span><b style="color:inherit">${s.ken.text}</b></span></li>`+s.lines.map(l=>/^\d|^[UL][RL]/.test(l[0])?`<li><b>${l[0]}</b><span>${l[1]}</span></li>`:`<li class="gen"><span><b style="color:var(--muted);font-weight:700">${l[0]}:</b> ${l[1]}</span></li>`).join('')});
+$('obtp').addEventListener('input',e=>{if(e.target.id!=='obH')return;const o=A().obt||(A().obt={});o.height=e.target.value;save();renderSummary()});
 $('flange').addEventListener('click',e=>{const b=e.target.closest('[data-fl]');if(b)commit(()=>A().flange=b.dataset.fl)});
 $('connectors').addEventListener('click',e=>{const mx=e.target.closest('[data-mx]');if(mx){const v=mx.dataset.mx;if(v==='custom'){tool='shape';olTarget='mesh';selV=null;renderTools();setHint('Drag the handles to set how far the mesh extends. A dashed handle adds a point.');return}
     commit(()=>{A().meshExt=v;A().mshape=null});setHint(v==='full'?'Mesh extends over the full free-end saddle.':v==='short'?'Mesh stops short of the '+(S.arch==='upper'?'tuberosity':'retromolar pad')+'; acrylic alone covers the rest.':'Mesh ends at the distal of the last denture tooth.');return}const bmb=e.target.closest('[data-bm]');if(bmb){const v=bmb.dataset.bm,a=S.arch;if((isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome')===v)return;
@@ -960,7 +1006,7 @@ Object.entries(FM).forEach(([k,id])=>$(id).addEventListener('input',()=>{S.field
 // pointer
 function toSvg(e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return [q.x,q.y]}
 function hit(pt){const a=S.arch;let best=null;
-  KEYS.forEach(K=>{const x=toothXf(a,K),dx=pt[0]-x.F.P[0],dy=pt[1]-x.F.P[1],u=dx*x.F.D[0]+dy*x.F.D[1],v=dx*x.B[0]+dy*x.B[1];
+  KEYS.forEach(K=>{if(S.arches[a].teeth[K].st==='c')return;const x=toothXf(a,K),dx=pt[0]-x.F.P[0],dy=pt[1]-x.F.P[1],u=dx*x.F.D[0]+dy*x.F.D[1],v=dx*x.B[0]+dy*x.B[1];
     if(Math.abs(u)<=x.t.w+0.8&&Math.abs(v)<=x.t.h+2){const sc=Math.hypot(u/x.t.w,v/x.t.h);if(!best||sc<best.sc)best={K,u,v,sc,k:x.t.k}}});
   return best}
 let down=null,live=null;
@@ -996,6 +1042,9 @@ function tap(pt,target){
     if(biteType==='post'){const on=(bite(S.arch).post||[]).includes(h0.K);if(!on&&A().teeth[h0.K].st==='n'){setHint(nm0+' is missing and not replaced.',true);return}
       commit(()=>{const b=A().bite||(A().bite={}),ps=b.post||(b.post=[]);if(on)ps.splice(ps.indexOf(h0.K),1);else ps.push(h0.K)});setHint(nm0+': occlusal coverage '+(on?'removed':'added')+'.');return}
     const same=bite(S.arch).ant===biteType;commit(()=>{const b=A().bite||(A().bite={});b.ant=same?null:biteType});setHint(same?'Anterior bite plane removed.':(biteType==='inclined'?'Inclined':'Flat')+' anterior bite plane added.');return}
+  if(tool==='space'&&spMode==='close'){const h0=hit(pt);if(!h0)return;const K=h0.K;
+    commit(()=>{const r=A();Object.assign(r.teeth[K],blankTooth(+K[1]),{st:'c'});if(r.space)Object.keys(r.space).forEach(k=>{if(k.split('|').includes(K))delete r.space[k]});if(r.collets)r.collets=r.collets.filter(k=>!k.split('|').includes(K));if(r.bite&&r.bite.post)r.bite.post=r.bite.post.filter(x=>x!==K)});
+    setHint(tname(S.arch,K)+' removed and the space closed. Tap ↺ '+tname(S.arch,K)+' to put it back.');renderTools();return}
   if(tool==='space'){const h0=hit(pt);if(!h0)return;const sd=h0.u<0?'m':'d',nb=nbKey(h0.K,sd);
     if(!nb){setHint('There is no neighbouring tooth on that side.',true);return}
     const k=embKey(h0.K,nb),cur=(A().space||{})[k],off=cur===gapMM,nm2=k.split('|').map(x=>tname(S.arch,x)).join('/');
@@ -1046,6 +1095,10 @@ function tap(pt,target){
 
 // toast & copy text
 let tt0;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt0);tt0=setTimeout(()=>t.classList.remove('on'),1800)}
+$('sumEditBtn').onclick=()=>{$('sumEd').value=sumAsText(summary(S.arch));$('sumEdBox').hidden=false;renderSummary();$('sumEd').focus()};
+$('sumCancel').onclick=()=>{$('sumEdBox').hidden=true;renderSummary()};
+$('sumSave').onclick=()=>{const v=$('sumEd').value,auto=sumAsText(summaryAuto(S.arch));$('sumEdBox').hidden=true;commit(()=>{A().sumText=v.trim()===auto.trim()?null:v});toast(A().sumText==null?'Summary unchanged':'Summary text saved')};
+$('sumAuto').onclick=()=>{commit(()=>{A().sumText=null});toast('Summary back to automatic')};
 $('copyText').onclick=()=>{const txt=textSummary();
   (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Design text copied')).catch(()=>{
     const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Design text copied')}catch(e){toast('Select the summary text to copy it')}ta.remove()})};
@@ -1068,7 +1121,7 @@ async function buildCard(){
   // build text blocks
   function archBlock(a,w){const s=summary(a),out=[];out.push({f:F.ah,c:'#0B2E4A',t:(a==='upper'?'Upper':'Lower')+' arch',lh:24});
     out.push({f:F.bb,c:'#1C7293',t:s.ken.text,lh:22,gap:4});
-    s.lines.forEach(l=>{meas.font=F.b;const head=l[0]+': ';meas.font=F.bb;const hw=meas.measureText(head).width;meas.font=F.b;
+    s.lines.forEach(l=>{meas.font=F.b;const head=l[0]?l[0]+': ':'';meas.font=F.bb;const hw=meas.measureText(head).width;meas.font=F.b;
       const lines=wrap(meas,l[1],w-hw);lines.forEach((ln,i)=>out.push({f:F.b,c:'#24323F',t:ln,head:i===0?head:'',ind:hw,lh:21}))});
     return out}
   function genBlock(w){const f=S.fields,out=[];const t=[f.shade&&'Shade '+f.shade,f.mould&&'Mould '+f.mould].filter(Boolean).join('  ·  ');
