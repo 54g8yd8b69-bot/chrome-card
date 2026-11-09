@@ -439,7 +439,8 @@ function endCap(a,s,A0,B0,dir,k){const q=Q(a,s+dir*0.2,0),q0=Q(a,s,0);let ox=q[0
 function pip(pt,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];
   if((a[1]>pt[1])!==(b[1]>pt[1])&&pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c}
 function inConn(a,pt){let n=0;connPolys(a).forEach(p=>{if(pip(pt,p))n++});return n%2===1}
-function connOuter(a,s){if(!connPolys(a).length)return null;const h=hb(a,s);for(let d=h-1.5;d<h+30;d+=0.5){if(inConn(a,Q(a,s,d)))return d}return null}
+// nearest connector edge on the palatal/lingual side of the arch at s; stops before the scan crosses to the other side of the arch
+function connOuter(a,s){if(!connPolys(a).length)return null;const h=hb(a,s);for(let d=h-1.5;d<h+16;d+=0.5){if(inConn(a,Q(a,s,d)))return d}return null}
 // ---------- obturators: maxillary defect ----------
 const DPRE=[['I','Unilateral (to midline)'],['II','Unilateral posterior'],['III','Central palatal'],['IV','Crossing midline'],['V','Bilateral posterior'],['VI','Anterior']];
 function defectPreset(a,k,side){const t=G[a].t,h=s=>hb(a,s),sg=side==='L'?1:-1,end=t[7].s1+3,yP=Q(a,end,0)[1]+6,buc=s=>-(h(s)+3);
