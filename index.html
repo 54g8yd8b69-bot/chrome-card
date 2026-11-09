@@ -378,9 +378,16 @@ function kennedy(a){
 function arm_end(a,side){ // signed s of distal extent on a side
   const T=S.arches[a].teeth;for(let k=8;k>=1;k--){const t=T[side+k];if(t.st!=='n'&&t.st!=='c'){const g=G[a].t[k-1];return (side==='R'?-1:1)*(g.sc+g.w*.55)}}return 0}
 let PC={};
+// on a chrome lower, lingual bars / plates stop a little way into a free-end saddle; the mesh carries the rest
+const BARC=['bar','kennedy','lplate','sublingual'];
+const barShort=a=>a==='lower'&&!isAcr(a)&&BARC.includes(S.arches[a].conn)&&(S.arches[a].barExt||'saddle')==='saddle';
+function feEnd(a,side){const lk=lastKey(a,side);if(!lk||!isRep(S.arches[a].teeth[lk]))return null;const {out}=runs(a,isRep),r=out.find(q=>q.keys.includes(lk));if(!r)return null;
+  const ks=r.keys.filter(K=>K[0]===side);if(!ks.length||r.keys.some(K=>K[0]!==side))return null;const Km=ks.reduce((x,y)=>+y[1]<+x[1]?y:x),q=sRange(a,Km);
+  return side==='R'?q[1]-4:q[0]+4}
 function presetPolys(a){
   const c=S.arches[a].conn;if(c==='none')return [];
-  const R=arm_end(a,'R'),L=arm_end(a,'L'),t=G[a].t,h=s=>hb(a,s);
+  let R=arm_end(a,'R'),L=arm_end(a,'L');const t=G[a].t,h=s=>hb(a,s);
+  if(barShort(a)){const r=feEnd(a,'R'),l=feEnd(a,'L');if(r!=null)R=Math.max(R,r);if(l!=null)L=Math.min(L,l)}
   const band=(s0,s1,d1,d2)=>curve(a,s0,s1,d1).concat(curve(a,s1,s0,d2));
   if(c==='plate')return [curve(a,R,L,notched(a,s=>h(s)+0.4))];
   if(c==='horseshoe')return [band(R,L,s=>h(s)+6,s=>h(s)+14)];
@@ -543,7 +550,7 @@ function meshAuto(a){
   out.forEach(r=>{let s0=1e9,s1=-1e9;r.keys.forEach(K=>{const q=sRange(a,K);s0=Math.min(s0,q[0]);s1=Math.max(s1,q[1])});
     const feR=r.keys.includes(lastKey(a,'R')),feL=r.keys.includes(lastKey(a,'L'));
     s0-=0.3;s1+=0.3;if(feR)s0-=ext[0];if(feL)s1+=ext[0];
-    const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.2,c+0.8):h+1.2};
+    const lw=barShort(a)?2.6:1.2,lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+lw,c+0.8):h+lw};
     const Bc=curve(a,s0,s1,s=>-hb(a,s)*0.45,0.3),Lc=curve(a,s1,s0,lin);let poly=Bc.slice();
     if(feL)poly=poly.concat(endCap(a,s1,Bc[Bc.length-1],Lc[0],1,ext[1]));poly=poly.concat(Lc);
     if(feR)poly=poly.concat(endCap(a,s0,Lc[Lc.length-1],Bc[0],-1,ext[1]));
@@ -570,7 +577,7 @@ function saddleAuto(a){
     const feR=r.keys.includes(lastKey(a,'R')),feL=r.keys.includes(lastKey(a,'L'));
     if(feR)s0-=1.2;
     if(feL)s1+=1.2;
-    const lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+1.6,c+0.8):h+1.6};
+    const lw=barShort(a)?3.4:1.6,lin=s=>{const c=connOuter(a,s),h=hb(a,s);return c!=null?Math.max(h+lw,c+0.8):h+lw};
     const bu0=(REAL()||isAcr(a))?2.8:1.6;
     const bu=s=>sock&&eR.some(q=>s>=q[0]-0.6&&s<=q[1]+0.6)?-hb(a,s)*0.35:bu0;
     // rounded flange: free ends finish in a rounded tuberosity / retromolar end, other corners are softened when drawn
@@ -794,7 +801,7 @@ function summaryAuto(a){
    if(b.ant)bl.push(`${b.ant==='inclined'?'inclined':'flat'} anterior bite plane (${mt}) ${a==='upper'?'palatal':'lingual'} to the ${nm('R3')}–${nm('L3')} region`);
    if(pp.length)bl.push(`posterior occlusal coverage (${mt}) on ${pp.map(nm).join(', ')}`);
    if(bl.length)lines.push(['Bite plane',bl.join('; ')])}
-  lines.push([isAcr(a)?'Base':'Connector',connName(a)]);
+  lines.push([isAcr(a)?'Base':'Connector',connName(a)+(!S.arches[a].shape&&barShort(a)&&(feEnd(a,'R')!=null||feEnd(a,'L')!=null)?' ending just into the free-end saddles; mesh retention carries back to the retromolar pad':'')]);
   const cl=(S.arches[a].collets||[]).slice().sort((x,y)=>KEYS.indexOf(x.split('|')[0])-KEYS.indexOf(y.split('|')[0]));
   if(cl.length)lines.push(['Collets',`${a==='upper'?'palatal':'lingual'} collets (${isAcr(a)?'acrylic':'metal'}) into the ${cl.map(k=>k.split('|').map(nm).join('/')).join(', ')} embrasure${cl.length>1?'s':''}`]);
   const kr=kbRuns(a);if(kr.length)lines.push(['Kennedy bar',kr.map(r=>r.length>1?nm(r[0])+'–'+nm(r[r.length-1]):nm(r[0])).join('; ')+' (resting on cingula)']);
@@ -957,7 +964,7 @@ function render(){
   $('flange').innerHTML=atype(a)==='immediate'?`<span class="lbl" style="align-self:center">Immediate teeth</span>`+[['flanged','Flanged'],['socketed','Socketed (no flange)']].map(([k,l])=>`<button type="button" class="chip" data-fl="${k}" aria-pressed="${(A().flange||'flanged')===k}">${l}</button>`).join(''):'';$('flange').hidden=atype(a)!=='immediate';
   $('connLbl').textContent=isAcr(a)?'Acrylic base':'Major connector';
   const bm=isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome';
-  $('connectors').innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Baseplate</span>`+[['chrome','Chrome'],['peek','PEEK'],['acrylic','Acrylic']].map(([k,l])=>`<button type="button" class="chip" data-bm="${k}" aria-pressed="${bm===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+connList(a).map(([k,l])=>`<button type="button" class="chip" data-conn="${k}" aria-pressed="${!A().shape&&A().conn===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-conn="custom" aria-pressed="${!!A().shape}">Custom outline…</button>`+(isAcr(a)?'':`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Mesh (free end)</span>`+[['full',a==='upper'?'Over tuberosity':'Onto retromolar pad'],['short',a==='upper'?'Short of tuberosity':'Short of pad'],['tooth','To last denture tooth']].map(([k,l])=>`<button type="button" class="chip" data-mx="${k}" aria-pressed="${!A().mshape&&(A().meshExt||'full')===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-mx="custom" aria-pressed="${!!A().mshape}">Custom…</button>`);
+  $('connectors').innerHTML=`<span class="lbl" style="align-self:center;min-width:5.5em">Baseplate</span>`+[['chrome','Chrome'],['peek','PEEK'],['acrylic','Acrylic']].map(([k,l])=>`<button type="button" class="chip" data-bm="${k}" aria-pressed="${bm===k}">${l}</button>`).join('')+`<span style="flex-basis:100%;height:0"></span>`+connList(a).map(([k,l])=>`<button type="button" class="chip" data-conn="${k}" aria-pressed="${!A().shape&&A().conn===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-conn="custom" aria-pressed="${!!A().shape}">Custom outline…</button>`+(a==='lower'&&!isAcr(a)&&BARC.includes(A().conn)&&!A().shape?`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Bar length</span>`+[['saddle','Stops at free-end saddle'],['full','Full length']].map(([k,l])=>`<button type="button" class="chip" data-bx="${k}" aria-pressed="${(A().barExt||'saddle')===k}">${l}</button>`).join(''):'')+(isAcr(a)?'':`<span style="flex-basis:100%;height:0"></span><span class="lbl" style="align-self:center;min-width:5.5em">Mesh (free end)</span>`+[['full',a==='upper'?'Over tuberosity':'Onto retromolar pad'],['short',a==='upper'?'Short of tuberosity':'Short of pad'],['tooth','To last denture tooth']].map(([k,l])=>`<button type="button" class="chip" data-mx="${k}" aria-pressed="${!A().mshape&&(A().meshExt||'full')===k}">${l}</button>`).join('')+`<button type="button" class="chip" data-mx="custom" aria-pressed="${!!A().mshape}">Custom…</button>`);
   renderSummary();
   $('undo').disabled=!hist.length;$('redo').disabled=!fut.length;
 }
@@ -986,7 +993,7 @@ $('obtp').addEventListener('click',e=>{if(e.target.closest('[data-gotodefect]'))
   commit(()=>{const o=A().obt||(A().obt={});o[g]=(g==='bv'||g==='bh')&&o[g]===v?'':v});if(g==='frame'&&v==='acrylic'){claspMat='wrought';claspType='circ'}});
 $('obtp').addEventListener('input',e=>{if(e.target.id!=='obH')return;const o=A().obt||(A().obt={});o.height=e.target.value;save();renderSummary()});
 $('flange').addEventListener('click',e=>{const b=e.target.closest('[data-fl]');if(b)commit(()=>A().flange=b.dataset.fl)});
-$('connectors').addEventListener('click',e=>{const mx=e.target.closest('[data-mx]');if(mx){const v=mx.dataset.mx;if(v==='custom'){tool='shape';olTarget='mesh';selV=null;renderTools();setHint('Drag the handles to set how far the mesh extends. A dashed handle adds a point.');return}
+$('connectors').addEventListener('click',e=>{const bx=e.target.closest('[data-bx]');if(bx){const v=bx.dataset.bx;commit(()=>{A().barExt=v});setHint(v==='saddle'?'The connector stops just inside the free-end saddles; the mesh carries back to the retromolar pad.':'The connector runs the full length of the free-end saddles.');return}const mx=e.target.closest('[data-mx]');if(mx){const v=mx.dataset.mx;if(v==='custom'){tool='shape';olTarget='mesh';selV=null;renderTools();setHint('Drag the handles to set how far the mesh extends. A dashed handle adds a point.');return}
     commit(()=>{A().meshExt=v;A().mshape=null});setHint(v==='full'?'Mesh extends over the full free-end saddle.':v==='short'?'Mesh stops short of the '+(S.arch==='upper'?'tuberosity':'retromolar pad')+'; acrylic alone covers the rest.':'Mesh ends at the distal of the last denture tooth.');return}const bmb=e.target.closest('[data-bm]');if(bmb){const v=bmb.dataset.bm,a=S.arch;if((isAcr(a)?'acrylic':isPeek(a)?'peek':'chrome')===v)return;
     commit(()=>{const r=A();if(v!=='acrylic')r.fmat=v==='peek'?'peek':null;if(isObt(a)){(r.obt||(r.obt={})).frame=v==='acrylic'?'acrylic':'cocr'}else r.type=v==='acrylic'?(r.type==='immediate'?'immediate':'acrylic'):'cocr';
       if(!connList(a).some(x=>x[0]===r.conn)){r.conn=connList(a)[0][0];r.shape=null}if(v!=='acrylic')KEYS.forEach(K=>{if(r.teeth[K].st==='e')r.teeth[K].st='r'})});
