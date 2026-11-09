@@ -618,7 +618,7 @@ function lastKey(a,side){const T=S.arches[a].teeth;for(let k=8;k>=1;k--){if(T[si
 function toothXf(a,K){const t=G[a].t[+K[1]-1],s=(K[0]==='R'?-1:1)*t.sc,F=frame(a,s);const B=[-F.N[0],-F.N[1]];
   return {t,s,F,B,m:`matrix(${f2(F.D[0])} ${f2(F.D[1])} ${f2(B[0])} ${f2(B[1])} ${f2(F.P[0])} ${f2(F.P[1])})`}}
 function teethSVG(a){
-  const T=S.arches[a].teeth;let o='',labels='',imps='';
+  const T=S.arches[a].teeth;let o='',rep='',labels='',imps='';
   KEYS.forEach(K=>{const x=toothXf(a,K),t=x.t,tt=T[K],ol=pathOf(outline(t));
     if(tt.st==='c')return;
     let g='';
@@ -629,13 +629,14 @@ function teethSVG(a){
     else if(tt.imp){g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.9 0.7"/>`}
     else if(REAL()){g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.25 0.55" stroke-linecap="round"/>`}
     else{const s=Math.min(t.w,t.h)*.55;g=`<path d="${ol}" fill="none" stroke="${C.miss}" stroke-width="0.25" stroke-dasharray="0.9 0.7"/><path d="M${-s} ${-s}L${s} ${s}M${s} ${-s}L${-s} ${s}" stroke="${C.miss}" stroke-width="0.3"/>`}
-    o+=`<g transform="${x.m}" data-tooth="${K}">${g}</g>`;
+    // denture teeth sit on top of the major connector; standing teeth go underneath it
+    const gs=`<g transform="${x.m}" data-tooth="${K}">${g}</g>`;if(isRep(tt))rep+=gs;else o+=gs;
     if(tt.crown&&tt.st==='p'&&!tt.tele){const P=x.F.P;imps+=`<text x="${f2(P[0])}" y="${f2(P[1]+0.75)}" text-anchor="middle" font-size="2.1" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="${CC.mcrown}">${tt.crown.type==='milled'?'Mc':'Pa'}</text>`}
     if(tt.tele&&tt.st==='p'){const P=x.F.P;imps+=`<text x="${f2(P[0])}" y="${f2(P[1]+0.75)}" text-anchor="middle" font-size="2.1" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="${CC.tele}">${tt.tele==='con'?'K':'P'}</text>`}
     if(tt.imp&&tt.st!=='p'){const c=CC[tt.imp],P=x.F.P;imps+=`<g><circle cx="${f2(P[0])}" cy="${f2(P[1])}" r="2.5" fill="#FFFFFF" stroke="${c}" stroke-width="0.55"/><circle cx="${f2(P[0])}" cy="${f2(P[1])}" r="1.75" fill="${c}"/><text x="${f2(P[0])}" y="${f2(P[1]+0.7)}" text-anchor="middle" font-size="2" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#FFFFFF">${IMP[tt.imp][1]}</text></g>`}
     const lp=[x.F.P[0]+x.B[0]*(t.h+6.3),x.F.P[1]+x.B[1]*(t.h+6.3)];
     labels+=`<text x="${f2(lp[0])}" y="${f2(lp[1]+0.9)}" text-anchor="middle" font-size="2.5" font-family="Arial, Helvetica, sans-serif" fill="${tt.st==='n'?'#A0A6B0':C.label}">${tname(a,K)}</text>`;
-  });return {o,labels,imps};
+  });return {o,rep,labels,imps};
 }
 function fwPolys(a){const k=a+'_fw';if(!PC[k])PC[k]=connPolys(a).concat(isAcr(a)?saddlePolys(a):meshPolys(a));return PC[k]}
 function nearestOn(a,pt){let best=null;fwPolys(a).forEach(p=>{for(let i=0;i<p.length;i++){const A1=p[i],B1=p[(i+1)%p.length],dx=B1[0]-A1[0],dy=B1[1]-A1[1],l=dx*dx+dy*dy;
@@ -719,7 +720,7 @@ function archSVG(a,interactive){
 <rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#FFFFFF"/>
 <text x="${f2(vb[0]+1.5)}" y="${f2(yMid)}" font-size="3" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">R</text>
 <text x="${f2(vb[0]+vb[2]-1.5)}" y="${f2(yMid)}" font-size="3" font-weight="700" text-anchor="end" font-family="Arial, Helvetica, sans-serif" fill="#8796A4">L</text>
-${softPalateSVG(a)}${saddlesSVG(a)}${defectSVG(a)}${cp.minor}${th.o}${c}${colletSVG(a)}${biteSVG(a)}${kennedySVG(a)}${cp.parts}${th.imps}${th.labels}${annSVG(a,interactive)}${interactive?sugSVG(a)+handlesSVG(a,vb):''}`};
+${softPalateSVG(a)}${saddlesSVG(a)}${defectSVG(a)}${cp.minor}${th.o}${c}${colletSVG(a)}${th.rep}${biteSVG(a)}${kennedySVG(a)}${cp.parts}${th.imps}${th.labels}${annSVG(a,interactive)}${interactive?sugSVG(a)+handlesSVG(a,vb):''}`};
 }
 
 let selV=null,drag=null;
