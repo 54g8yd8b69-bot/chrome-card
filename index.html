@@ -1133,8 +1133,16 @@ function export3D(a){PC={};const T=S.arches[a].teeth,R2=q=>[+q[0].toFixed(3),+q[
     if(tt.clasp&&tt.clasp.type!=='gasket'){const c=tt.clasp,sg=c.o==='m'?-1:1,mat=c.mat||'cast',kind=mat==='cast'?'cast':mat==='gold'?'gold':'wire';
       if(c.type==='ibar'||c.type==='tbar')clasps.push({K,kind:mat==='cast'?'ibar':kind,ging:true,pts:L([[sg*(t.w+1.8),t.h+3.2],[sg*t.w*0.5,t.h+3.2],[0,t.h+2.4],[0,t.h+0.6]])});
       else clasps.push({K,kind,pts:L(arm(t,sg,1,8,c.type==='ring'?330:c.type==='cc'?170:150,0.55))})}});
+  const collets=(S.arches[a].collets||[]).map(k=>{const [A1,B1]=k.split('|'),sb=embS(a,A1,B1),hh=h(sb),w2=Math.min(2.8,hh*0.42);return [Q(a,sb-w2*1.3,hh+1.8),Q(a,sb-w2,hh+0.35),Q(a,sb-w2*0.45,hh*0.75),Q(a,sb,hh*0.35),Q(a,sb+w2*0.45,hh*0.75),Q(a,sb+w2,hh+0.35),Q(a,sb+w2*1.3,hh+1.8)].map(R2)});
+  const overlays=[],rings=[],bites=[],OVQ3={db:[0,90],mb:[90,180],ml:[180,270],dl:[270,360]};
+  KEYS.forEach(K=>{const tt=T[K];if(tt.st!=='p')return;const x=toothXf(a,K),t=x.t;
+    Object.entries(OVQ3).forEach(([q,r])=>{if(!(tt.ov&&tt.ov[q]))return;const pp=[[0,0]];for(let i=0;i<=16;i++)pp.push(se(t.w-0.15,t.h-0.15,t.k,(r[0]+(r[1]-r[0])*i/16)*Math.PI/180));overlays.push({K,q,poly:pp.map(p=>W(x,p[0],p[1]))})});
+    if(tt.rring)rings.push({K,kind:'ring'});if(tt.clasp&&tt.clasp.type==='gasket')rings.push({K,kind:'gasket'})});
+  const b3=bite(a);
+  if(b3.ant){const t=G[a].t,s0=-t[2].s1+0.4,s1=t[2].s1-0.4;bites.push({kind:'ant',poly:curve(a,s0,s1,s=>h(s)-1.5,0.4).concat(curve(a,s1,s0,s=>h(s)+(b3.ant==='inclined'?5.5:7.5),0.4)).map(R2)})}
+  (b3.post||[]).forEach(K=>{if(!T[K]||T[K].st==='n'||T[K].st==='c')return;const x=toothXf(a,K);bites.push({kind:'post',K,poly:outline(x.t,0.35).map(p=>W(x,p[0],p[1]))})});
   const sm=summary(a);
-  return {app:'Chrome Card',for:'Chrome Card 3D',version:1,arch:a,acrylic:acr,teeth,
+  return {app:'Chrome Card',for:'Chrome Card 3D',version:2,collets,overlays,rings,bites,biteMetal:bpMetal(a),arch:a,acrylic:acr,teeth,
     conn:acr?[]:P2(connPolys(a)).concat(kb),saddles:P2(acr?saddlePolys(a).concat(connPolys(a)):saddlePolys(a)),mesh:acr?[]:P2(meshPolys(a)),rests,clasps,
     kennedy:sm.ken.text,summary:sm.lines.map(l=>l[0]?l[0]+': '+l[1]:l[1])}}
 $('copy3d').onclick=async()=>{const txt=JSON.stringify(export3D(S.arch));render();
