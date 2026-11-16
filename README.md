@@ -5,11 +5,11 @@ Draw removable partial denture, acrylic denture and obturator designs as a digit
 **Open the app:** https://54g8yd8b69-bot.github.io/chrome-card/
 
 - Cobalt-chromium, PEEK and acrylic frameworks; immediate dentures; stage 1 and 2 obturators
-- Rests, cast and wrought clasps (circumferential, C clasp, ring, I-bar, Roach T-bar; retentive arm buccal, or lingual / palatal), RPI, continuous clasps (Kennedy bars), gasket clasps, ring rests, reciprocating plates, overlays
+- Rests (cingulum rests on the mesial half, centre or distal half), cast and wrought clasps (circumferential, C clasp, ring, I-bar, Roach T-bar; retentive arm buccal, or lingual / palatal), RPI, continuous clasps (Kennedy bars), gasket clasps, ring rests, reciprocating plates, overlays
 - Metal-backed pontics; acrylic round a metal palatal plate
 - Implants (Locator, Novaloc), telescopic, milled and precision attachment crowns
-- Editable connector, saddle and mesh outlines; collets; tooth spacing; bite planes
-- A 3D view of the framework on a generic model or on your own intraoral scan, for telling the laboratory what is wanted; handles reshape clasp arms, and the Rest size tool moves each rest and sets its width, length or height up the tooth, and thickness
+- Major connectors: palatal plate, anteroposterior strap (an open ring), midpalatal strap, horseshoe; lingual bar, lingual plate, sublingual bar. Editable connector, saddle and mesh outlines; collets; tooth spacing; bite planes
+- A 3D view of the framework on a generic model or on your own intraoral scan, for telling the laboratory what is wanted; a suggested path of insertion from the planned clasp undercuts; handles reshape clasp arms, and the Rest size tool moves each rest and sets its width, length or height up the tooth, and thickness
 
 Everything runs in the browser. Designs are saved only in your own browser's local storage.
 
