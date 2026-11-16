@@ -9,7 +9,7 @@ Draw removable partial denture, acrylic denture and obturator designs as a digit
 - Metal-backed pontics; acrylic round a metal palatal plate
 - Implants (Locator, Novaloc), telescopic, milled and precision attachment crowns
 - Editable connector, saddle and mesh outlines; collets; tooth spacing; bite planes
-- A 3D view of the framework on a generic model or on your own intraoral scan, for telling the laboratory what is wanted
+- A 3D view of the framework on a generic model or on your own intraoral scan, for telling the laboratory what is wanted; handles reshape clasp arms and set the size of each rest (width, length or height up the tooth, thickness)
 
 Everything runs in the browser. Designs are saved only in your own browser's local storage.
 
